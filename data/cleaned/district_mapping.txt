@@ -1,0 +1,26 @@
+0: Đan Phượng
+1: Long Biên
+2: Cầu Giấy
+3: Đống Đa
+4: Thường Tín
+5: Hà Đông
+6: Thanh Xuân
+7: Thanh Trì
+8: Hoàng Mai
+9: Gia Lâm
+10: Ba Đình
+11: Nam Từ Liêm
+12: Tây Hồ
+13: Bắc Từ Liêm
+14: Hai Bà Trưng
+15: Sóc Sơn
+16: Hoài Đức
+17: Hoàn Kiếm
+18: Thạch Thất
+19: Quốc Oai
+20: Đông Anh
+21: Ba Vì
+22: Mê Linh
+23: Chương Mỹ
+24: Sơn Tây
+25: Thanh Oai

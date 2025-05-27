@@ -1,0 +1,6 @@
+artifact_location: mlflow-artifacts:/366814496230327040
+creation_time: 1748274678580
+experiment_id: '366814496230327040'
+last_update_time: 1748274678580
+lifecycle_stage: active
+name: real_estate_price_prediction

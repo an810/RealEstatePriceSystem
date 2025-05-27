@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/366814496230327040/f0db9f58c0d540598bbf2bf61873f396/artifacts
+end_time: 1748335092849
+entry_point_name: ''
+experiment_id: '366814496230327040'
+lifecycle_stage: active
+run_id: f0db9f58c0d540598bbf2bf61873f396
+run_name: price_prediction_model
+run_uuid: f0db9f58c0d540598bbf2bf61873f396
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1748335087556
+status: 3
+tags: []
+user_id: airflow
