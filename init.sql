@@ -1,30 +1,27 @@
 -- Create tables
 
-CREATE TABLE IF NOT EXISTS url (
-    id SERIAL PRIMARY KEY,
-    url_id VARCHAR(30) UNIQUE,
-    url VARCHAR(255),
-    source VARCHAR(30),
-    crawled_date TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS real_estate (
-    id SERIAL PRIMARY KEY,
+    url_id VARCHAR(30),
     title VARCHAR(255),
-    url_id VARCHAR(255),
     area FLOAT,
     price FLOAT,
     number_of_bedrooms INTEGER,
     number_of_toilets INTEGER,
     legal INTEGER,
+    property_type VARCHAR(50),
+    property_type_id INTEGER,
+    district_id INTEGER,
+    district_name VARCHAR(50),
+    province VARCHAR(50),
+    is_available BOOLEAN DEFAULT TRUE,
     lat FLOAT,
     lon FLOAT,
-    district_id INTEGER,
-    district_name VARCHAR(30),
-    province VARCHAR(30),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+    source VARCHAR(50),
+    url VARCHAR(512),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT real_estate_pkey PRIMARY KEY (url_id)
+)
 
 CREATE TABLE IF NOT EXISTS subscription (
     id SERIAL PRIMARY KEY,

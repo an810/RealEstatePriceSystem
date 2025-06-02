@@ -9,7 +9,7 @@ import logging
 # Add the scripts directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-from train_price_model import train_price_model
+from model_training_module import train_model
 from clean_data import clean_data
 from save_data import save_to_database
 
@@ -38,31 +38,31 @@ dag = DAG(
 )
 
 # Wait for BatDongSan scraping to complete
-# wait_for_batdongsan = ExternalTaskSensor(
-#     task_id='wait_for_batdongsan',
-#     external_dag_id='batdongsan_scraping',
-#     external_task_id='process_data',
-#     mode='reschedule',
-#     timeout=43200,  # 12 hours timeout
-#     dag=dag
-# )
+wait_for_batdongsan = ExternalTaskSensor(
+    task_id='wait_for_batdongsan',
+    external_dag_id='batdongsan_scraping',
+    external_task_id='process_data',
+    mode='reschedule',
+    timeout=64800,  # 18 hours timeout
+    dag=dag
+)
 
 # Wait for Nhatot scraping to complete
-# wait_for_nhatot = ExternalTaskSensor(
-#     task_id='wait_for_nhatot',
-#     external_dag_id='nhatot_scraping',
-#     external_task_id='process_data',
-#     mode='reschedule',
-#     timeout=43200,  # 12 hours timeout
-#     dag=dag
-# )
+wait_for_nhatot = ExternalTaskSensor(
+    task_id='wait_for_nhatot',
+    external_dag_id='nhatot_scraping',
+    external_task_id='process_data',
+    mode='reschedule',
+    timeout=64800,  # 18 hours timeout
+    dag=dag
+)
 
 # Add data preparation task
-# clean_data_task = PythonOperator(
-#     task_id='clean_data',
-#     python_callable=clean_data,
-#     dag=dag
-# )
+clean_data_task = PythonOperator(
+    task_id='clean_data',
+    python_callable=clean_data,
+    dag=dag
+)
 
 save_data_task = PythonOperator(
     task_id='save_data',
@@ -73,11 +73,9 @@ save_data_task = PythonOperator(
 # Define training tasks
 train_price = PythonOperator(
     task_id='train_price_model',
-    python_callable=train_price_model,
+    python_callable=train_model,
     dag=dag
 )
 
 # Set task dependencies
-# [wait_for_batdongsan, wait_for_nhatot] >> clean_data_task >>
- 
-save_data_task >> train_price
+[wait_for_batdongsan, wait_for_nhatot] >> clean_data_task >> save_data_task >> train_price

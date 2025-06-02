@@ -1,0 +1,11 @@
+{
+  "total_records": 12557,
+  "unique_districts": 26,
+  "unique_property_types": 5,
+  "avg_price": 11.488118092139842,
+  "avg_area": 70.43802500597276,
+  "source_distribution": {
+    "batdongsan": 10743,
+    "nhatot": 1814
+  }
+}

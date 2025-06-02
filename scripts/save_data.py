@@ -23,6 +23,11 @@ def load_district_mapping():
         logger.error(f"Error loading district mapping: {str(e)}")
         raise
 
+def strip_url_id(url_id):
+    if isinstance(url_id, float) and url_id.is_integer():
+        return str(int(url_id))
+    return str(url_id).strip()
+
 def load_url_mappings():
     """Load URL mappings from both sources"""
     try:
@@ -38,14 +43,25 @@ def load_url_mappings():
         # Load nhatot URLs
         nhatot_df = pd.read_csv('/opt/airflow/data/output/nhatot_url.tsv', sep='\t')
         nhatot_df['source'] = 'nhatot'
+        nhatot_df['id'] = nhatot_df['id'].apply(strip_url_id)
         # Rename columns to match database schema
         nhatot_df = nhatot_df.rename(columns={
             'id': 'url_id',
             'updated_date': 'crawled_date'
         })
+
+        logger.info(f"Batdongsan URL shape: {batdongsan_df.shape}")
+        logger.info(f"Nhatot URL shape: {nhatot_df.shape}")
+
+        # Remove duplicate rows and keep the last one
+        batdongsan_df = batdongsan_df.drop_duplicates(subset=['url_id'], keep='last')
+        nhatot_df = nhatot_df.drop_duplicates(subset=['url_id'], keep='last')
         
+        logger.info(f"Batdongsan URL shape after deduplication: {batdongsan_df.shape}")
+        logger.info(f"Nhatot URL shape after deduplication: {nhatot_df.shape}")
+
         # Select only the columns we need for the database
-        columns_to_keep = ['url_id', 'url', 'source', 'crawled_date']
+        columns_to_keep = ['url_id', 'url', 'source']
         batdongsan_df = batdongsan_df[columns_to_keep]
         nhatot_df = nhatot_df[columns_to_keep]
         
@@ -61,35 +77,29 @@ def create_tables(engine):
     """Create tables if they don't exist"""
     try:
         with engine.begin() as conn:
-            # Create real_estate table
+            # Create real_estate table with new schema
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS real_estate (
-                    id SERIAL,
-                    url_id VARCHAR(30) PRIMARY KEY,
+                    url_id VARCHAR(30),
                     title VARCHAR(255),
                     area FLOAT,
                     price FLOAT,
                     number_of_bedrooms INTEGER,
                     number_of_toilets INTEGER,
                     legal INTEGER,
-                    lat FLOAT,
-                    lon FLOAT,
+                    property_type VARCHAR(50),
+                    property_type_id INTEGER,
                     district_id INTEGER,
                     district_name VARCHAR(50),
                     province VARCHAR(50),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
-            
-            # Create url table
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS url (
-                    id SERIAL ,
-                    url_id VARCHAR(30) PRIMARY KEY,
-                    url VARCHAR(512),
+                    is_available BOOLEAN DEFAULT TRUE,
+                    lat FLOAT,
+                    lon FLOAT,
                     source VARCHAR(50),
-                    crawled_date TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    url VARCHAR(512),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT real_estate_pkey PRIMARY KEY (url_id)
                 )
             """))
             
@@ -107,11 +117,10 @@ def create_indexes(engine):
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_district_id ON real_estate(district_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_district_name ON real_estate(district_name);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS idx_area ON real_estate(area);"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_url_id ON real_estate(url_id);"))
-            
-            # Indexes for url table
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_url_id ON url(url_id);"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_url_source ON url(source);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_source ON real_estate(source);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_is_available ON real_estate(is_available);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_property_type ON real_estate(property_type);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS idx_property_type_id ON real_estate(property_type_id);"))
             
         logger.info("Indexes created successfully")
     except Exception as e:
@@ -159,13 +168,40 @@ def save_to_database():
         df = df.rename(columns={'district': 'district_name'})
         
         # Ensure all numeric columns are properly typed
-        numeric_columns = ['area', 'price', 'number_of_bedrooms', 'number_of_toilets', 'legal', 'lat', 'lon']
+        numeric_columns = ['area', 'price', 'number_of_bedrooms', 'number_of_toilets', 'legal', 'lat', 'lon', 'property_type_id']
         for col in numeric_columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(-1)
-            if col in ['number_of_bedrooms', 'number_of_toilets', 'legal']:
+            if col in ['number_of_bedrooms', 'number_of_toilets', 'legal', 'property_type_id']:
                 df[col] = df[col].astype(int)
 
+        # Load URL data and combine with real estate data
+        logger.info("Loading URL data...")
+        url_df = load_url_mappings()
+        
+        # Merge real estate data with URL data
+        df['url_id'] = df['url_id'].astype(str).str.strip()
+        url_df['url_id'] = url_df['url_id'].astype(str).str.strip()
+        
+        not_in_url_df = ~df['url_id'].isin(url_df['url_id'])
+        print(df[not_in_url_df][['url_id', 'title']].head())
+        print(f"Rows in main data missing from url_df: {not_in_url_df.sum()}")
+
+        df = pd.merge(df, url_df[['url_id', 'source', 'url']], on='url_id', how='left')
+
+       
+        # drop rows where url and source is null
+        df = df.dropna(subset=['url', 'source'])
+
+        # Add is_available column (default to True)
+        df['is_available'] = True
+        
+        # Add created_at, updated_at column
+        df['created_at'] = pd.Timestamp.now()
+        df['updated_at'] = pd.Timestamp.now()
+
+       
         # Remove duplicates based on url_id (primary key)
+        logger.info(f"Dataframe shape before deduplication: {df.shape}")
         df = df.drop_duplicates(subset=['url_id'], keep='last')
         logger.info(f"Dataframe shape after deduplication: {df.shape}")
 
@@ -199,7 +235,13 @@ def save_to_database():
                             'lon': stmt.excluded.lon,
                             'district_id': stmt.excluded.district_id,
                             'district_name': stmt.excluded.district_name,
-                            'province': stmt.excluded.province
+                            'province': stmt.excluded.province,
+                            'property_type': stmt.excluded.property_type,
+                            'property_type_id': stmt.excluded.property_type_id,
+                            'source': stmt.excluded.source,
+                            'is_available': stmt.excluded.is_available,
+                            'created_at': stmt.excluded.created_at,
+                            'updated_at': stmt.excluded.updated_at
                         }
                     )
                     conn.execute(stmt)
@@ -207,51 +249,6 @@ def save_to_database():
                 
         except Exception as e:
             logger.error(f"Error saving real estate data to database: {str(e)}")
-            raise
-
-        # Load and save URL mappings
-        logger.info("Loading URL mappings...")
-        url_df = load_url_mappings()
-
-        # Filter URL data to only include URLs that exist in real estate data
-        logger.info(f"URL dataframe shape before filtering: {url_df.shape}")
-        url_df = url_df[url_df['url_id'].isin(df['url_id'])]
-        logger.info(f"URL dataframe shape after filtering: {url_df.shape}")
-
-        # Remove duplicates from URL data
-        url_df = url_df.drop_duplicates(subset=['url_id'], keep='last')
-        logger.info(f"URL dataframe shape after deduplication: {url_df.shape}")
-
-        # Save URL data to database
-        logger.info("Saving URL data to database...")
-        try:
-            # Convert DataFrame to list of dictionaries
-            url_records = url_df.to_dict('records')
-            
-            # Create metadata and table objects
-            metadata = MetaData()
-            url_table = Table('url', metadata, autoload_with=engine)
-            
-            # Insert data in chunks with upsert
-            chunk_size = 1000
-            for i in range(0, len(url_records), chunk_size):
-                chunk = url_records[i:i + chunk_size]
-                with engine.begin() as conn:
-                    # Create upsert statement
-                    stmt = insert(url_table).values(chunk)
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=['url_id'],
-                        set_={
-                            'url': stmt.excluded.url,
-                            'source': stmt.excluded.source,
-                            'crawled_date': stmt.excluded.crawled_date
-                        }
-                    )
-                    conn.execute(stmt)
-                logger.info(f"Processed {i + len(chunk)} URL records")
-                
-        except Exception as e:
-            logger.error(f"Error saving URL data to database: {str(e)}")
             raise
 
         # Create indexes

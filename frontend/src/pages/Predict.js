@@ -18,17 +18,24 @@ import {
 import axios from 'axios';
 
 const districts = [
-  'Ba Đình', 'Ba Vì', 'Cầu Giấy', 'Chương Mỹ', 'Đan Phượng', 'Đông Anh', 'Đống Đa',
-  'Gia Lâm', 'Hà Đông', 'Hai Bà Trưng', 'Hoài Đức', 'Hoàn Kiếm', 'Hoàng Mai',
-  'Long Biên', 'Mê Linh', 'Mỹ Đức', 'Phú Xuyên', 'Phúc Thọ', 'Quốc Oai', 'Sóc Sơn',
-  'Sơn Tây', 'Tây Hồ', 'Thạch Thất', 'Thanh Oai', 'Thanh Trì', 'Thanh Xuân',
-  'Thường Tín', 'Từ Liêm', 'Ứng Hòa'
+  'Ba Đình', 'Ba Vì', 'Cầu Giấy', 'Chương Mỹ', 'Đan Phượng', 'Đông Anh', 
+  'Đống Đa', 'Gia Lâm', 'Hà Đông', 'Hai Bà Trưng', 'Hoài Đức', 'Hoàn Kiếm', 
+  'Hoàng Mai', 'Long Biên', 'Mê Linh', 'Quốc Oai', 'Sóc Sơn', 'Sơn Tây', 
+  'Tây Hồ', 'Thanh Oai', 'Thanh Trì', 'Thanh Xuân', 'Thạch Thất', 'Thường Tín', 
+  'Từ Liêm'
 ];
 
 const legalStatuses = [
   { value: 'Chưa có sổ', label: 'Chưa có sổ' },
   { value: 'Hợp đồng', label: 'Hợp đồng' },
   { value: 'Sổ đỏ', label: 'Sổ đỏ' },
+];
+
+const propertyTypes = [
+  { value: 'Chung cư', label: 'Chung cư' },
+  { value: 'Biệt thự', label: 'Biệt thự' },
+  { value: 'Nhà riêng', label: 'Nhà riêng' },
+  { value: 'Đất', label: 'Đất' }
 ];
 
 const validationSchema = yup.object({
@@ -54,6 +61,10 @@ const validationSchema = yup.object({
     .string()
     .required('District is required')
     .oneOf(districts, 'Please select a valid district'),
+  property_type: yup
+    .string()
+    .required('Property type is required')
+    .oneOf(propertyTypes.map(type => type.value), 'Please select a valid property type'),
 });
 
 function Predict() {
@@ -68,6 +79,7 @@ function Predict() {
       number_of_toilets: '',
       legal: '',
       district: '',
+      property_type: '',
     },
     validationSchema: validationSchema,
     onSubmit: async (values) => {
@@ -168,6 +180,29 @@ function Predict() {
               {formik.touched.district && formik.errors.district && (
                 <Typography color="error" variant="caption">
                   {formik.errors.district}
+                </Typography>
+              )}
+            </FormControl>
+
+            <FormControl fullWidth error={formik.touched.property_type && Boolean(formik.errors.property_type)}>
+              <InputLabel id="property-type-label">Property Type</InputLabel>
+              <Select
+                labelId="property-type-label"
+                id="property_type"
+                name="property_type"
+                value={formik.values.property_type}
+                onChange={formik.handleChange}
+                label="Property Type"
+              >
+                {propertyTypes.map((type) => (
+                  <MenuItem key={type.value} value={type.value}>
+                    {type.label}
+                  </MenuItem>
+                ))}
+              </Select>
+              {formik.touched.property_type && formik.errors.property_type && (
+                <Typography color="error" variant="caption">
+                  {formik.errors.property_type}
                 </Typography>
               )}
             </FormControl>

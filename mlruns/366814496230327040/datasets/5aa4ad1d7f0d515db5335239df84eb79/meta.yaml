@@ -1,0 +1,9 @@
+digest: bad4ca40
+name: dataset
+profile: '{"features_shape": [11364, 7], "features_size": 79548, "features_nbytes":
+  318192}'
+schema: '{"mlflow_tensorspec": {"features": "[{\"type\": \"tensor\", \"tensor-spec\":
+  {\"dtype\": \"float32\", \"shape\": [-1, 7]}}]", "targets": null}}'
+source: '{"tags": {"mlflow.user": "airflow", "mlflow.source.name": "/home/airflow/.local/bin/airflow",
+  "mlflow.source.type": "LOCAL"}}'
+source_type: code

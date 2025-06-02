@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/651082190307044136/6f37d8570cbb4704b7c3765076436b43/artifacts
+end_time: 1748666208120
+entry_point_name: ''
+experiment_id: '651082190307044136'
+lifecycle_stage: active
+run_id: 6f37d8570cbb4704b7c3765076436b43
+run_name: stacking_model
+run_uuid: 6f37d8570cbb4704b7c3765076436b43
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1748666208057
+status: 4
+tags: []
+user_id: airflow

@@ -6,6 +6,20 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def infer_property_type(title):
+    if pd.isna(title):
+        return "Khác", 0
+    title = str(title).lower()
+    if "chung cư" in title or "căn hộ" in title:
+        return "Chung cư", 1
+    if "biệt thự" in title or "liền kề" in title:
+        return "Biệt thự", 2
+    if "nhà riêng" in title or "nhà mặt phố" in title or "nhà" in title:
+        return "Nhà riêng", 3
+    if "đất" in title:
+        return "Đất", 4
+    return "Khác", 0
+
 def clean_data():
     """Merge and filter data from both sources before model training"""
     try:
@@ -58,7 +72,11 @@ def clean_data():
             for district, index in district_mapping.items():
                 f.write(f"{index}: {district}\n")
 
-        # Save processed data for visualization
+        # Add property_type column using the infer_property_type function
+        logger.info("Inferring property type...")
+        df[['property_type', 'property_type_id']] = df['title'].apply(infer_property_type).apply(pd.Series)
+
+        # Save processed data for visualization (with property_type)
         logger.info("Saving visualization data...")
         df.to_csv('/opt/airflow/data/cleaned/visualization_data.tsv', sep='\t', index=False)
         
@@ -66,7 +84,7 @@ def clean_data():
         logger.info("Mapping district names to indices...")
         df['district'] = df['district'].map(district_mapping)
 
-        # Save processed data
+        # Save processed data (with property_type)
         logger.info("Saving processed data...")
         df.to_csv('/opt/airflow/data/cleaned/processed_data.tsv', sep='\t', index=False)
         
@@ -78,4 +96,4 @@ def clean_data():
         return False
 
 if __name__ == "__main__":
-    clean_data() 
+    clean_data()

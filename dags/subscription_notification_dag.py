@@ -7,7 +7,7 @@ import os
 # Add the scripts directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-from notify import process_subscriptions
+from daily_notify import process_subscriptions
 
 default_args = {
     'owner': 'airflow',
@@ -22,8 +22,8 @@ dag = DAG(
     'subscription_notification',
     default_args=default_args,
     description='Process real estate subscriptions and send notifications',
-    schedule_interval=timedelta(hours=24),  # Run daily
-    start_date=datetime(2024, 1, 1),
+    schedule_interval='0 8 * * *',  # Run daily at 8:00 AM
+    start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=['real_estate', 'notifications'],
 )
@@ -33,5 +33,3 @@ process_subscriptions_task = PythonOperator(
     python_callable=process_subscriptions,
     dag=dag,
 ) 
-
-process_subscriptions_task

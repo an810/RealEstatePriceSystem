@@ -1,0 +1,6 @@
+artifact_location: mlflow-artifacts:/651082190307044136
+creation_time: 1748591314179
+experiment_id: '651082190307044136'
+last_update_time: 1748591314179
+lifecycle_stage: active
+name: real_estate_stacking_model

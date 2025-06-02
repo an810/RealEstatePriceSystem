@@ -1,0 +1,14 @@
+aliases: []
+creation_timestamp: 1748844396759
+current_stage: Production
+description: ''
+last_updated_timestamp: 1748844396859
+name: price_prediction_stacking_model
+run_id: ab8af824c0524c7d8cf0d37a85578492
+run_link: ''
+source: mlflow-artifacts:/366814496230327040/ab8af824c0524c7d8cf0d37a85578492/artifacts/price_prediction_stacking_model
+status: READY
+status_message: null
+storage_location: mlflow-artifacts:/366814496230327040/ab8af824c0524c7d8cf0d37a85578492/artifacts/price_prediction_stacking_model
+user_id: null
+version: 11

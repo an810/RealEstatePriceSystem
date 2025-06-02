@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 5000
 
 # Command to run the MLflow tracking server
-CMD ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000"] 
+CMD ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--default-artifact-root", "/app/mlruns"]

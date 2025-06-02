@@ -20,14 +20,16 @@ import {
 import axios from 'axios';
 
 const DISTRICTS = [
-  'Ba Đình', 'Ba Vì', 'Cầu Giấy', 'Chương Mỹ', 'Đan Phượng', 'Đông Anh', 'Đống Đa',
-  'Gia Lâm', 'Hà Đông', 'Hai Bà Trưng', 'Hoài Đức', 'Hoàn Kiếm', 'Hoàng Mai',
-  'Long Biên', 'Mê Linh', 'Mỹ Đức', 'Phú Xuyên', 'Phúc Thọ', 'Quốc Oai', 'Sóc Sơn',
-  'Sơn Tây', 'Tây Hồ', 'Thạch Thất', 'Thanh Oai', 'Thanh Trì', 'Thanh Xuân',
-  'Thường Tín', 'Từ Liêm', 'Ứng Hòa'
+  'Ba Đình', 'Ba Vì', 'Cầu Giấy', 'Chương Mỹ', 'Đan Phượng', 'Đông Anh', 
+  'Đống Đa', 'Gia Lâm', 'Hà Đông', 'Hai Bà Trưng', 'Hoài Đức', 'Hoàn Kiếm', 
+  'Hoàng Mai', 'Long Biên', 'Mê Linh', 'Quốc Oai', 'Sóc Sơn', 'Sơn Tây', 
+  'Tây Hồ', 'Thanh Oai', 'Thanh Trì', 'Thanh Xuân', 'Thạch Thất', 'Thường Tín', 
+  'Từ Liêm'
 ];
 
 const LEGAL_STATUSES = ['Chưa có sổ', 'Hợp đồng', 'Sổ đỏ'];
+
+const PROPERTY_TYPES = ['Chung cư', 'Biệt thự', 'Nhà riêng', 'Đất'];
 
 const Search = () => {
   const [loading, setLoading] = useState(false);
@@ -46,6 +48,7 @@ const Search = () => {
     num_toilets: '',
     districts: [],
     legal_status: '',
+    property_type: '',
   });
 
   const handleInputChange = (field, value) => {
@@ -200,7 +203,7 @@ const Search = () => {
             </Grid>
 
             {/* Legal Status */}
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               <FormControl fullWidth variant="outlined">
                 <InputLabel id="legal-status-label" sx={{ backgroundColor: 'white', px: 1 }}>Legal Status</InputLabel>
                 <Select
@@ -212,6 +215,25 @@ const Search = () => {
                   {LEGAL_STATUSES.map((status) => (
                     <MenuItem key={status} value={status}>
                       {status}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Property Type */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel id="property-type-label" sx={{ backgroundColor: 'white', px: 1 }}>Property Type</InputLabel>
+                <Select
+                  labelId="property-type-label"
+                  value={formData.property_type}
+                  onChange={(e) => handleInputChange('property_type', e.target.value)}
+                  required
+                >
+                  {PROPERTY_TYPES.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      {type}
                     </MenuItem>
                   ))}
                 </Select>
@@ -277,6 +299,9 @@ const Search = () => {
                           </Typography>
                           <Typography color="textSecondary" gutterBottom>
                             Legal Status: {property.legal_status}
+                          </Typography>
+                          <Typography color="textSecondary" gutterBottom>
+                            Property Type: {property.property_type}
                           </Typography>
                           {property.url && (
                             <Typography color="primary" gutterBottom>

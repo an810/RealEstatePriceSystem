@@ -15,3 +15,4 @@ docker compose run airflow airflow users create \
 ```
 docker compose up -d --build
 ```
+    

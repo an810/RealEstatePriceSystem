@@ -1,0 +1,14 @@
+aliases: []
+creation_timestamp: 1748703774335
+current_stage: Production
+description: ''
+last_updated_timestamp: 1748703774398
+name: price_prediction_model
+run_id: 8f6e22912a4e456fb2f878a81c92dbd2
+run_link: ''
+source: mlflow-artifacts:/366814496230327040/8f6e22912a4e456fb2f878a81c92dbd2/artifacts/price_prediction_model
+status: READY
+status_message: null
+storage_location: mlflow-artifacts:/366814496230327040/8f6e22912a4e456fb2f878a81c92dbd2/artifacts/price_prediction_model
+user_id: null
+version: 8
