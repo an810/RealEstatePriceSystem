@@ -1,6 +1,8 @@
 import pandas as pd
 import logging
 import os
+from batdongsan_processor import BatDongSanProcessor
+from nhatot_processor import NhatotProcessor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,11 +22,23 @@ def infer_property_type(title):
         return "Đất", 4
     return "Khác", 0
 
-def clean_data():
-    """Merge and filter data from both sources before model training"""
+def process_and_clean_data():
+    """Process data from both sources and then clean it"""
     try:
-        # Read data from both sources
-        logger.info("Reading data from BatDongSan and Nhatot...")
+        # Process BatDongSan data
+        logger.info("Processing BatDongSan data...")
+        batdongsan_processor = BatDongSanProcessor()
+        if not batdongsan_processor.process_data():
+            raise Exception("Failed to process BatDongSan data")
+
+        # Process Nhatot data
+        logger.info("Processing Nhatot data...")
+        nhatot_processor = NhatotProcessor()
+        if not nhatot_processor.process_data():
+            raise Exception("Failed to process Nhatot data")
+
+        # Read processed data from both sources
+        logger.info("Reading processed data from both sources...")
         df1 = pd.read_csv('/opt/airflow/data/output/processed_batdongsan.tsv', sep='\t')
         df2 = pd.read_csv('/opt/airflow/data/output/processed_nhatot.tsv', sep='\t')
 
@@ -88,12 +102,16 @@ def clean_data():
         logger.info("Saving processed data...")
         df.to_csv('/opt/airflow/data/cleaned/processed_data.tsv', sep='\t', index=False)
         
-        logger.info("Data preparation completed successfully!")
+        logger.info("Data processing and cleaning completed successfully!")
         return True
         
     except Exception as e:
-        logger.error(f"Error in prepare_data: {str(e)}")
+        logger.error(f"Error in process_and_clean_data: {str(e)}")
         return False
+
+def clean_data():
+    """Function to be called from the DAG"""
+    return process_and_clean_data()
 
 if __name__ == "__main__":
     clean_data()

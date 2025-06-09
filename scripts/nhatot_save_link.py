@@ -5,19 +5,27 @@ import requests
 from tqdm import tqdm
 from typing import Set, Optional, Dict
 from threading import Lock
+from sqlalchemy import create_engine, text
 
 class NhatotScraper:
     
     def __init__(
         self,
-        output_file: str = "/opt/airflow/data/crawled/hn_nhatot_links.txt",
-        error_file: str = "/opt/airflow/data/crawled/hn_nhatot_error_links.txt",
+        output_file: str = "/opt/airflow/data/crawled/nhatot_links.txt",
+        error_file: str = "/opt/airflow/data/crawled/nhatot_error_links.txt",
         base_url: str = "https://www.nhatot.com",
         region_v2: int = 12000,  # Hanoi region
         cg: int = 1000,  # Real estate category
         save_interval: int = 10,
         retry_attempts: int = 5,
-        retry_delay: int = 3
+        retry_delay: int = 3,
+        db_params: dict = {
+            'dbname': 'real_estate',
+            'user': 'postgres',
+            'password': 'postgres',
+            'host': 'real_estate_db',
+            'port': '5432'
+        }
     ):
         
         self.output_file = output_file
@@ -28,10 +36,12 @@ class NhatotScraper:
         self.save_interval = save_interval
         self.retry_attempts = retry_attempts
         self.retry_delay = retry_delay
-        self.all_links = set()
+        self.all_links = set()  # Store all scraped links
+        self.unscraped_links = set()  # Store only unscraped links
         self.error_urls = []
         self.links_lock = Lock()
         self.error_urls_lock = Lock()
+        self.db_params = db_params
         
         # Create output directory if it doesn't exist
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -44,6 +54,30 @@ class NhatotScraper:
         )
         self.logger = logging.getLogger("NhatotScraper")
     
+    def get_db_engine(self):
+        """Get database engine instance"""
+        return create_engine(
+            f"postgresql://{self.db_params['user']}:{self.db_params['password']}@{self.db_params['host']}:{self.db_params['port']}/{self.db_params['dbname']}"
+        )
+
+    def load_scraped_links_from_db(self) -> Set[str]:
+        """Load all scraped links from the database"""
+        try:
+            engine = self.get_db_engine()
+            with engine.connect() as conn:
+                query = """
+                    SELECT url 
+                    FROM real_estate 
+                    WHERE source = 'nhatot'
+                """
+                result = conn.execute(text(query))
+                scraped_links = {row[0] for row in result}
+                self.logger.info(f"Loaded {len(scraped_links)} scraped links from database")
+                return scraped_links
+        except Exception as e:
+            self.logger.error(f"Error loading links from database: {e}")
+            return set()
+
     def clear_file(self, file_path: str) -> None:
         """Clear the contents of a file"""
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -85,6 +119,18 @@ class NhatotScraper:
                 self.all_links.update(f.read().splitlines())
             self.logger.info(f"Loaded {len(self.all_links)} existing links")
 
+    def save_links(self) -> None:
+        """Filter out scraped links and save only unscraped ones to file"""
+        # Load scraped links from database
+        scraped_links = self.load_scraped_links_from_db()
+        
+        # Filter out already scraped links
+        self.unscraped_links = self.all_links - scraped_links
+        self.logger.info(f"Found {len(self.all_links)} total links, {len(self.unscraped_links)} are unscraped")
+        
+        # Save only unscraped links to file
+        self.write_links(self.output_file, self.unscraped_links)
+
     def scrape_links(self) -> bool:
         """Main function to scrape property links from Nhatot"""
         self.load_existing_links()
@@ -117,11 +163,11 @@ class NhatotScraper:
 
             # Save progress every save_interval pages
             if page_th % self.save_interval == 0:
-                self.write_links(self.output_file, self.all_links)
+                self.save_links()
                 time.sleep(1)  # Small delay to prevent overwhelming the API
 
         # Final save of all links
-        self.write_links(self.output_file, self.all_links)
+        self.save_links()
 
         # Log any errors
         if self.error_urls:
@@ -139,11 +185,18 @@ class NhatotScraper:
 
 
 def scrape_links(
-    output_file: str = "/opt/airflow/data/crawled/hn_nhatot_links.txt",
-    error_file: str = "/opt/airflow/data/crawled/hn_nhatot_error_links.txt",
+    output_file: str = "/opt/airflow/data/crawled/nhatot_links.txt",
+    error_file: str = "/opt/airflow/data/crawled/nhatot_error_links.txt",
     base_url: str = "https://www.nhatot.com",
     region_v2: int = 12000,
-    cg: int = 1000
+    cg: int = 1000,
+    db_params: dict = {
+        'dbname': 'real_estate',
+        'user': 'postgres',
+        'password': 'postgres',
+        'host': 'real_estate_db',
+        'port': '5432'
+    }
 ):
     """Function to be used as an Airflow task"""
     scraper = NhatotScraper(
@@ -151,7 +204,8 @@ def scrape_links(
         error_file=error_file,
         base_url=base_url,
         region_v2=region_v2,
-        cg=cg
+        cg=cg,
+        db_params=db_params
     )
     return scraper.run()
 

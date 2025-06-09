@@ -35,7 +35,8 @@ EMAIL_FROM = "anmd.clone@gmail.com"
 
 # Telegram configuration
 TELEGRAM_BOT_TOKEN = "8135521232:AAH6i6cIc0LzGLtp_tgXfMmnDH5HV-MDTUc"
-TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+CLOUDFLARE_WORKER_URL = "https://hustrealestate.antp9254.workers.dev"
+TELEGRAM_API_URL = f"{CLOUDFLARE_WORKER_URL}/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
 # Property type mapping
 PROPERTY_TYPE_MAPPING = {
@@ -403,7 +404,7 @@ def process_subscriptions():
     
     # Send notifications in batch
     batch_send_email_notifications(email_properties, email_requirements)
-    # batch_send_telegram_notifications(telegram_properties)
+    batch_send_telegram_notifications(telegram_properties)
 
 if __name__ == "__main__":
     process_subscriptions()

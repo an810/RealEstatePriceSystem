@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS real_estate (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT real_estate_pkey PRIMARY KEY (url_id)
-)
+);
 
 CREATE TABLE IF NOT EXISTS subscription (
     id SERIAL PRIMARY KEY,
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS subscription (
     num_toilets INTEGER NOT NULL,
     district_ids VARCHAR(255) NOT NULL,
     legal_status_id INTEGER NOT NULL,
+    property_type_id INTEGER NOT NULL,
     user_id VARCHAR(255) NOT NULL,
     user_type VARCHAR(10) NOT NULL,
     created_at TIMESTAMP NOT NULL

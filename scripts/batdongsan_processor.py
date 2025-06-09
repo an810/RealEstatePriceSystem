@@ -122,7 +122,7 @@ class BatDongSanProcessor:
             pd.set_option('display.max_columns', None)
 
             # Read input file
-            input_file_path = os.path.join(self.input_dir, 'hn_batdongsan.tsv')
+            input_file_path = os.path.join(self.input_dir, 'batdongsan.tsv')
             if not os.path.exists(input_file_path):
                 raise FileNotFoundError(f"Input file not found: {input_file_path}")
 
@@ -155,7 +155,7 @@ class BatDongSanProcessor:
             df['legal'] = df['legal'].apply(self.convert_phaply_to_int)
 
             # Save processed data
-            output_file_path = os.path.join(self.output_dir, f'processed_hn_batdongsan.tsv')
+            output_file_path = os.path.join(self.output_dir, f'processed_batdongsan.tsv')
             df.to_csv(output_file_path, sep='\t', index=False)
             logging.info(f"Successfully saved processed data to {output_file_path}")
 

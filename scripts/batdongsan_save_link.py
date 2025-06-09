@@ -7,8 +7,9 @@ import random
 import logging
 import os
 import concurrent.futures
-from typing import List
+from typing import List, Set
 from threading import Lock
+from sqlalchemy import create_engine, text
 
 class BatDongSanScraper:
     
@@ -22,7 +23,14 @@ class BatDongSanScraper:
         save_interval: int = 10,
         retry_attempts: int = 5,
         retry_delay: int = 3,
-        max_workers: int = 5
+        max_workers: int = 5,
+        db_params: dict = {
+            'dbname': 'real_estate',
+            'user': 'postgres',
+            'password': 'postgres',
+            'host': 'real_estate_db',
+            'port': '5432'
+        }
     ):
         
         self.output_file = output_file
@@ -34,10 +42,12 @@ class BatDongSanScraper:
         self.retry_attempts = retry_attempts
         self.retry_delay = retry_delay
         self.max_workers = max_workers
-        self.unscraped_links = set()
+        self.all_links = set()  # Store all scraped links
+        self.unscraped_links = set()  # Store only unscraped links
         self.links_lock = Lock()
         self.error_urls = []
         self.error_urls_lock = Lock()
+        self.db_params = db_params
         
         # Create output directory if it doesn't exist
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -104,23 +114,57 @@ class BatDongSanScraper:
                 time.sleep(delay)
         raise Exception(f"Failed to load page after {retries} attempts: {url}")
     
+    def get_db_engine(self):
+        """Get database engine instance"""
+        return create_engine(
+            f"postgresql://{self.db_params['user']}:{self.db_params['password']}@{self.db_params['host']}:{self.db_params['port']}/{self.db_params['dbname']}"
+        )
+
+    def load_scraped_links_from_db(self) -> Set[str]:
+        """Load all scraped links from the database"""
+        try:
+            engine = self.get_db_engine()
+            with engine.connect() as conn:
+                query = """
+                    SELECT url 
+                    FROM real_estate 
+                    WHERE source = 'batdongsan'
+                """
+                result = conn.execute(text(query))
+                scraped_links = {row[0] for row in result}
+                self.logger.info(f"Loaded {len(scraped_links)} scraped links from database")
+                return scraped_links
+        except Exception as e:
+            self.logger.error(f"Error loading links from database: {e}")
+            return set()
+
     def clear_file(self, file_path: str) -> None:
         with open(file_path, 'w', encoding='utf-8') as file:
             file.truncate(0)
     
     def load_existing_links(self) -> None:
+        """Load existing links from file"""
         if os.path.exists(self.output_file):
             with open(self.output_file, 'r', encoding='utf-8') as existing_links_file:
-                existing_links = existing_links_file.read().splitlines()
-                self.unscraped_links.update(existing_links)
-                self.logger.info(f"Loaded {len(existing_links)} existing links")
+                file_links = set(existing_links_file.read().splitlines())
+                self.all_links.update(file_links)
+                self.logger.info(f"Loaded {len(file_links)} existing links from file")
     
     def save_links(self) -> None:
+        """Filter out scraped links and save only unscraped ones to file"""
+        # Load scraped links from database
+        scraped_links = self.load_scraped_links_from_db()
+        
+        # Filter out already scraped links
+        self.unscraped_links = self.all_links - scraped_links
+        self.logger.info(f"Found {len(self.all_links)} total links, {len(self.unscraped_links)} are unscraped")
+        
+        # Save only unscraped links to file
         self.clear_file(self.output_file)
         with open(self.output_file, 'w', encoding='utf-8') as linksfile:
             for link in self.unscraped_links:
                 linksfile.write(link + '\n')
-        self.logger.info(f"Saved {len(self.unscraped_links)} links to {self.output_file}")
+        self.logger.info(f"Saved {len(self.unscraped_links)} unscraped links to {self.output_file}")
     
     def scrape_page(self, page_index: int) -> List[str]:
         """Scrape a single page and return any error URLs."""
@@ -150,7 +194,7 @@ class BatDongSanScraper:
                     if link.get('data-product-id') == "0":
                         continue
                     href = link.get('href')
-                    self.unscraped_links.add(self.base_url + href)
+                    self.all_links.add(self.base_url + href)
                 
         except Exception as e:
             self.logger.error(f"Error scraping page {page_index}: {e}")
@@ -240,7 +284,7 @@ class BatDongSanScraper:
                                 if link.get('data-product-id') == "0":
                                     continue
                                 href = link.get('href')
-                                self.unscraped_links.add(self.base_url + href)
+                                self.all_links.add(self.base_url + href)
                         return True
                     else:
                         self.logger.warning("No links found.")

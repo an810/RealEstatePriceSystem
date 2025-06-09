@@ -62,6 +62,9 @@ def get_start_keyboard():
             ],
             [
                 {"text": "Subscribe to Updates", "callback_data": "subscribe"},
+                {"text": "Unsubscribe", "callback_data": "unsubscribe"},
+            ],
+            [
                 {"text": "Help", "callback_data": "help"},
             ],
         ]
@@ -218,13 +221,28 @@ async def process_callback_query(callback_query):
             "Let's set up your subscription! 📬\n\n"
             "First, enter the minimum price (in billion VND):"
         )
+    elif data == "unsubscribe":
+        # Make the unsubscribe request
+        logger.info(f"Making unsubscribe request to {BACKEND_URL}/unsubscribe/{chat_id}")
+        async with httpx.AsyncClient() as client:
+            resp = await client.delete(f"{BACKEND_URL}/unsubscribe/{chat_id}")
+            if resp.status_code == 200:
+                logger.info(f"Unsubscribe response: {json.dumps(resp.json(), indent=2)}")
+                await send_telegram_message(chat_id, "Successfully unsubscribed from updates! 🎉")
+            elif resp.status_code == 404:
+                await send_telegram_message(chat_id, "You don't have any active subscriptions.")
+            else:
+                logger.error(f"Unsubscribe request failed with status {resp.status_code}: {resp.text}")
+                await send_telegram_message(chat_id, "Unsubscribe error, try again later.")
+        await send_telegram_message(chat_id, "What would you like to do next?", reply_markup=get_start_keyboard())
     elif data == "help":
         await send_telegram_message(
             chat_id,
             "Here's how to use this bot:\n\n"
             "1. Search Properties: Find properties matching your criteria\n"
             "2. Get Price Prediction: Get an estimated price for a property\n"
-            "3. Subscribe to Updates: Get notified about new properties\n\n"
+            "3. Subscribe to Updates: Get notified about new properties\n"
+            "4. Unsubscribe: Remove your subscription to updates\n\n"
             "Use the buttons above to get started!",
             reply_markup=get_start_keyboard(),
         )
@@ -299,8 +317,8 @@ async def process_callback_query(callback_query):
                         'min_area': user_data[chat_id]['min_area'],
                         'max_area': user_data[chat_id]['max_area']
                     },
-                    'num_bedrooms': 0,
-                    'num_toilets': 0,
+                    'num_bedrooms': user_data[chat_id].get('number_of_bedrooms', 0),
+                    'num_toilets': user_data[chat_id].get('number_of_toilets', 0),
                     'districts': [district],
                     'legal_status': user_data[chat_id]['legal_status'],
                     'property_type': user_data[chat_id]['property_type']
@@ -356,6 +374,39 @@ async def process_callback_query(callback_query):
                 user_data[chat_id] = {}
                 await send_telegram_message(chat_id, "What would you like to do next?", reply_markup=get_start_keyboard())
 
+            elif user_states[chat_id] == UserState.SUBSCRIBING:
+                # Make the subscription request
+                subscription_request = {
+                    "user_name": callback_query["from"]["first_name"],
+                    "price_range": {
+                        "min_price": user_data[chat_id]["min_price"],
+                        "max_price": user_data[chat_id]["max_price"]
+                    },
+                    "area_range": {
+                        "min_area": user_data[chat_id]["min_area"],
+                        "max_area": user_data[chat_id]["max_area"]
+                    },
+                    "num_bedrooms": user_data[chat_id]['number_of_bedrooms'],
+                    "num_toilets": user_data[chat_id]['number_of_toilets'],
+                    "districts": [district],
+                    "legal_status": user_data[chat_id]["legal_status"],
+                    "property_type": user_data[chat_id]["property_type"],
+                    "user_id": str(chat_id),
+                    "user_type": "telegram"
+                }
+                logger.info(f"Making subscription request to {BACKEND_URL}/subscribe with data: {json.dumps(subscription_request, indent=2)}")
+                async with httpx.AsyncClient() as client:
+                    resp = await client.post(f"{BACKEND_URL}/subscribe", json=subscription_request)
+                    if resp.status_code == 200:
+                        logger.info(f"Subscription response: {json.dumps(resp.json(), indent=2)}")
+                        await send_telegram_message(chat_id, "Successfully subscribed to updates! 🎉")
+                    else:
+                        logger.error(f"Subscription request failed with status {resp.status_code}: {resp.text}")
+                        await send_telegram_message(chat_id, "Subscription error, try again later.")
+                user_states[chat_id] = UserState.IDLE
+                user_data[chat_id] = {}
+                await send_telegram_message(chat_id, "What would you like to do next?", reply_markup=get_start_keyboard())
+
 async def process_update(update):
     # Handle callback query (button presses)
     if update.get("callback_query"):
@@ -383,7 +434,8 @@ async def process_update(update):
             "Here's how to use this bot:\n\n"
             "1. Search Properties: Find properties matching your criteria\n"
             "2. Get Price Prediction: Get an estimated price for a property\n"
-            "3. Subscribe to Updates: Get notified about new properties\n\n"
+            "3. Subscribe to Updates: Get notified about new properties\n"
+            "4. Unsubscribe: Remove your subscription to updates\n\n"
             "Use the buttons above to get started!",
             reply_markup=get_start_keyboard(),
         )
@@ -479,6 +531,26 @@ async def process_update(update):
                 try:
                     max_area = float(text)
                     user_input["max_area"] = max_area
+                    await send_telegram_message(chat_id, "Enter the number of bedrooms:")
+                except ValueError:
+                    await send_telegram_message(chat_id, "Please enter a valid number.")
+            elif "num_bedrooms" not in user_input:
+                try:
+                    num_bedrooms = int(text)
+                    if num_bedrooms < 0:
+                        await send_telegram_message(chat_id, "Please enter a non-negative number.")
+                        return
+                    user_input["number_of_bedrooms"] = num_bedrooms
+                    await send_telegram_message(chat_id, "Enter the number of toilets:")
+                except ValueError:
+                    await send_telegram_message(chat_id, "Please enter a valid number.")
+            elif "num_toilets" not in user_input:
+                try:
+                    num_toilets = int(text)
+                    if num_toilets < 0:
+                        await send_telegram_message(chat_id, "Please enter a non-negative number.")
+                        return
+                    user_input["number_of_toilets"] = num_toilets
                     await send_telegram_message(chat_id, "Select the property type:", reply_markup=get_property_type_keyboard())
                 except ValueError:
                     await send_telegram_message(chat_id, "Please enter a valid number.")
@@ -500,8 +572,8 @@ async def process_update(update):
                         "min_area": user_input["min_area"],
                         "max_area": user_input["max_area"]
                     },
-                    "num_bedrooms": 0,
-                    "num_toilets": 0,
+                    "num_bedrooms": user_input["number_of_bedrooms"],
+                    "num_toilets": user_input["number_of_toilets"],
                     "districts": [user_input["district"]],
                     "legal_status": user_input["legal_status"],
                     "property_type": user_input["property_type"],

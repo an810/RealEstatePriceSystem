@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 from batdongsan_save_link import BatDongSanScraper
 from batdongsan_scraper import scrape_data
-from batdongsan_processor import process_data
+from clean_data import clean_data
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -65,7 +65,7 @@ save_links_operator = PythonOperator(
 # Task 2: Scrape Data
 def scrape_data_task():
     try:
-        result = scrape_data(use_multiprocessing=True)
+        result = scrape_data()
         if not result:
             raise Exception("Scraping failed")
         return "Scraping completed successfully"
@@ -78,21 +78,21 @@ scrape_task = PythonOperator(
     dag=dag,
 )
 
-# Task 3: Process Data
-def process_data_task():
+# Task 3: Process and Clean Data
+def process_and_clean_data_task():
     try:
-        result = process_data()
+        result = clean_data()
         if not result:
-            raise Exception("Processing failed")
-        return "Processing completed successfully"
+            raise Exception("Processing and cleaning failed")
+        return "Processing and cleaning completed successfully"
     except Exception as e:
-        raise Exception(f"Error in process_data_task: {str(e)}")
+        raise Exception(f"Error in process_and_clean_data_task: {str(e)}")
 
-process_task = PythonOperator(
-    task_id='process_data',
-    python_callable=process_data_task,
+process_and_clean_task = PythonOperator(
+    task_id='process_and_clean_data',
+    python_callable=process_and_clean_data_task,
     dag=dag,
 )
 
 # Set task dependencies
-save_links_operator >> scrape_task >> process_task 
+save_links_operator >> scrape_task >> process_and_clean_task 

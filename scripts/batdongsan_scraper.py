@@ -56,8 +56,8 @@ def save_data(lock, url_data, data):
     else:
         base_dir = LOCAL_DATA_DIR
         
-    url_tsv_file = os.path.join(base_dir, "hn_batdongsan_url.tsv")
-    data_tsv_file = os.path.join(base_dir, "hn_batdongsan.tsv")
+    url_tsv_file = os.path.join(base_dir, "batdongsan_url.tsv")
+    data_tsv_file = os.path.join(base_dir, "batdongsan.tsv")
 
     url_df = pd.DataFrame([url_data])
     data_df = pd.DataFrame([data])
@@ -237,9 +237,9 @@ def scrape_data():
         
         # Determine which input file to use based on environment
         if os.path.exists(AIRFLOW_DATA_DIR):
-            input_file = os.path.join(AIRFLOW_DATA_DIR, "hn_batdongsan_links.txt")
+            input_file = os.path.join(AIRFLOW_DATA_DIR, "batdongsan_links.txt")
         else:
-            input_file = os.path.join(LOCAL_DATA_DIR, "hn_batdongsan_links.txt")
+            input_file = os.path.join(LOCAL_DATA_DIR, "batdongsan_links.txt")
             
         # Read links from file
         with open(input_file, 'r', encoding='utf-8') as f:

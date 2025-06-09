@@ -394,7 +394,7 @@ def main():
             CommandHandler('subscribe', lambda u, c: button_handler(u, c)),
             CallbackQueryHandler(button_handler, pattern='^subscribe$')
         ],
-        states = {
+        states={
             PRICE_MIN: [
                 CallbackQueryHandler(button_handler, pattern='^price_'),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_price)

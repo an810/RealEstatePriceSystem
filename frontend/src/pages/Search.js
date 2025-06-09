@@ -31,6 +31,19 @@ const LEGAL_STATUSES = ['Chưa có sổ', 'Hợp đồng', 'Sổ đỏ'];
 
 const PROPERTY_TYPES = ['Chung cư', 'Biệt thự', 'Nhà riêng', 'Đất'];
 
+const PROPERTY_TYPE_MAPPING = {
+  1: 'Chung cư',
+  2: 'Biệt thự',
+  3: 'Nhà riêng',
+  4: 'Đất'
+};
+
+const LEGAL_STATUS_MAPPING = {
+  0: 'Chưa có sổ',
+  1: 'Hợp đồng',
+  2: 'Sổ đỏ'
+};
+
 const Search = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -95,6 +108,14 @@ const Search = () => {
       ...prev,
       districts: prev.districts.filter(district => district !== districtToDelete)
     }));
+  };
+
+  const getPropertyTypeText = (typeId) => {
+    return PROPERTY_TYPE_MAPPING[typeId] || 'Unknown';
+  };
+
+  const getLegalStatusText = (statusId) => {
+    return LEGAL_STATUS_MAPPING[statusId] || 'Unknown';
   };
 
   return (
@@ -298,10 +319,10 @@ const Search = () => {
                             Bedrooms: {property.number_of_bedrooms} | Toilets: {property.number_of_toilets}
                           </Typography>
                           <Typography color="textSecondary" gutterBottom>
-                            Legal Status: {property.legal_status}
+                            Legal Status: {getLegalStatusText(property.legal)}
                           </Typography>
                           <Typography color="textSecondary" gutterBottom>
-                            Property Type: {property.property_type}
+                            Property Type: {getPropertyTypeText(property.property_type_id)}
                           </Typography>
                           {property.url && (
                             <Typography color="primary" gutterBottom>

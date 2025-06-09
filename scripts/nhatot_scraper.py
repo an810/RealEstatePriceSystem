@@ -253,7 +253,7 @@ def scrape_data():
         ensure_directories_exist()
         
         # Read URLs from file
-        file_path = os.path.join(DATA_DIR, 'hn_nhatot_links.txt')
+        file_path = os.path.join(DATA_DIR, 'nhatot_links.txt')
         with open(file_path, 'r', encoding='utf-8') as file:
             urls = [line.strip() for line in file if line.strip() and 'nhatot.com' in line]
 

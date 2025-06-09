@@ -10,8 +10,6 @@ import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 from model_training_module import train_model
-from clean_data import clean_data
-from save_data import save_to_database
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,7 +27,7 @@ default_args = {
 dag = DAG(
     'model_training',
     default_args=default_args,
-    description='Train ML models after both scraping DAGs complete',
+    description='Train ML models after data processing and saving is complete',
     schedule_interval='0 0 * * *',  # Schedule every day at 0 am
     start_date=datetime(2025, 1, 1),
     catchup=False,
@@ -37,45 +35,22 @@ dag = DAG(
     tags=['model', 'training']
 )
 
-# Wait for BatDongSan scraping to complete
-wait_for_batdongsan = ExternalTaskSensor(
-    task_id='wait_for_batdongsan',
-    external_dag_id='batdongsan_scraping',
-    external_task_id='process_data',
+# Wait for real estate scraping and data saving to complete
+wait_for_data = ExternalTaskSensor(
+    task_id='wait_for_data_saving',
+    external_dag_id='real_estate_scraping',
+    external_task_id='save_to_database',
     mode='reschedule',
     timeout=64800,  # 18 hours timeout
-    dag=dag
-)
-
-# Wait for Nhatot scraping to complete
-wait_for_nhatot = ExternalTaskSensor(
-    task_id='wait_for_nhatot',
-    external_dag_id='nhatot_scraping',
-    external_task_id='process_data',
-    mode='reschedule',
-    timeout=64800,  # 18 hours timeout
-    dag=dag
-)
-
-# Add data preparation task
-clean_data_task = PythonOperator(
-    task_id='clean_data',
-    python_callable=clean_data,
-    dag=dag
-)
-
-save_data_task = PythonOperator(
-    task_id='save_data',
-    python_callable=save_to_database,
     dag=dag
 )
 
 # Define training tasks
-train_price = PythonOperator(
+train_price_model = PythonOperator(
     task_id='train_price_model',
     python_callable=train_model,
     dag=dag
 )
 
 # Set task dependencies
-[wait_for_batdongsan, wait_for_nhatot] >> clean_data_task >> save_data_task >> train_price
+wait_for_data >> train_price_model
