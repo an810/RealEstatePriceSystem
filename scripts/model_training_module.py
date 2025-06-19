@@ -97,9 +97,97 @@ def train_model(**context) -> Dict[str, Any]:
                 logger.error(f"Error loading data from file: {str(e)}")
                 raise
 
+        def load_data_from_db():
+            """Load data from real_estate table"""
+            try:
+                logger.info("Loading data from database...")
+                
+                # Create database connection
+                # Using environment variables for database connection
+                # Database connection parameters
+                db_params = {
+                    'dbname': 'real_estate',
+                    'user': 'postgres',
+                    'password': 'postgres',
+                    'host': 'real_estate_db',
+                    'port': '5432'
+                }
+
+                # Create SQLAlchemy engine
+                engine = create_engine(f"postgresql://{db_params['user']}:{db_params['password']}@{db_params['host']}:{db_params['port']}/{db_params['dbname']}")
+                
+            
+                # Query to get data from real_estate table
+                query = """
+                SELECT 
+                    area,
+                    price,
+                    number_of_bedrooms,
+                    number_of_toilets,
+                    legal_id as legal,
+                    lat,
+                    lon,
+                    district_id as district,
+                    property_type_id
+                FROM real_estate 
+                WHERE is_available = TRUE 
+                AND price > 0 
+                AND area > 0
+                AND lat IS NOT NULL 
+                AND lon IS NOT NULL
+                """
+                
+                logger.info("Loading data from database...")
+                with engine.connect() as conn:
+                    result = conn.execute(text(query))
+                    columns = result.keys()
+                    rows = result.fetchall()
+                    df = pd.DataFrame.from_records(rows, columns=columns)
+                
+                # Validate data
+                logger.info(f"Data shape: {df.shape}")
+                logger.info(f"Columns: {df.columns.tolist()}")
+                logger.info(f"Missing values:\n{df.isnull().sum()}")
+
+                logger.info(f"df: {df.head()}")
+                
+                
+                # Handle missing values
+                numeric_columns = ['area', 'price', 'number_of_bedrooms', 'number_of_toilets', 'legal', 'lat', 'lon', 'district', 'property_type_id']
+                for col in numeric_columns:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                        df[col] = df[col].fillna(-1)
+
+                # Cast to int
+                df['legal'] = df['legal'].astype(int)
+                df['district'] = df['district'].astype(int)
+                df['property_type_id'] = df['property_type_id'].astype(int)
+                df['number_of_bedrooms'] = df['number_of_bedrooms'].astype(int)
+                df['number_of_toilets'] = df['number_of_toilets'].astype(int)
+
+                # Cast to float
+                df['lat'] = df['lat'].astype(float)
+                df['lon'] = df['lon'].astype(float)
+                df['area'] = df['area'].astype(float)
+                df['price'] = df['price'].astype(float)
+                
+                # Remove rows with invalid price or area
+                df = df[(df['price'] > 0) & (df['area'] > 0)]
+                
+                logger.info(f"Successfully loaded {len(df)} records from database")
+                return df
+                    
+            except Exception as e:
+                logger.error(f"Error loading data from database: {str(e)}")
+                raise
+
         # Setup MLflow
         setup_mlflow()
         
+        # Load data from database
+        # df = load_data_from_db()
+
         # Load data from file
         df = load_data_from_file()
         
@@ -108,6 +196,9 @@ def train_model(**context) -> Dict[str, Any]:
         X = df[feature_columns].copy()
         y = df['price'].copy()
         
+        logger.info(f"X: {X.head()}")
+        logger.info(f"y: {y.head()}")
+
         # Log data statistics
         logger.info(f"Feature statistics:\n{X.describe()}")
         logger.info(f"Target statistics:\n{y.describe()}")

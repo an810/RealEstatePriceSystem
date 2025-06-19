@@ -3,10 +3,40 @@ import logging
 import os
 from batdongsan_processor import BatDongSanProcessor
 from nhatot_processor import NhatotProcessor
+from sqlalchemy import create_engine, text
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def get_db_engine():
+    """Get database engine instance"""
+    db_params = {
+        'dbname': 'real_estate',
+        'user': 'postgres',
+        'password': 'postgres',
+        'host': 'real_estate_db',
+        'port': '5432'
+    }
+    return create_engine(f"postgresql://{db_params['user']}:{db_params['password']}@{db_params['host']}:{db_params['port']}/{db_params['dbname']}")
+
+def load_district_mapping():
+    """Load district mapping from database"""
+    try:
+        engine = get_db_engine()
+        with engine.connect() as conn:
+            query = """
+                SELECT district_id, district 
+                FROM district_mapping 
+                ORDER BY district_id
+            """
+            result = conn.execute(text(query))
+            district_mapping = {row.district: row.district_id for row in result}
+            logger.info(f"Loaded {len(district_mapping)} district mappings from database")
+            return district_mapping
+    except Exception as e:
+        logger.error(f"Error loading district mapping from database: {str(e)}")
+        raise
 
 def infer_property_type(title):
     if pd.isna(title):
@@ -66,7 +96,10 @@ def process_and_clean_data():
 
         # Remove outliers using percentile method
         logger.info("Removing outliers...")
-        upper_limit = df['price'].quantile(0.90)
+        upper_limit = df['area'].quantile(0.95)
+        df = df[df['area'] <= upper_limit]
+
+        upper_limit = df['price'].quantile(0.95)
         df = df[df['price'] <= upper_limit]
 
         upper_limit = df['number_of_bedrooms'].quantile(0.95)
@@ -75,30 +108,42 @@ def process_and_clean_data():
         upper_limit = df['number_of_toilets'].quantile(0.95)
         df = df[df['number_of_toilets'] <= upper_limit]
 
-        # Create and save district mapping
-        logger.info("Creating district mapping...")
-        district_mapping = {district: i for i, district in enumerate(df['district'].unique())}
-        
-        # Ensure output directory exists
-        os.makedirs('/opt/airflow/data/cleaned', exist_ok=True)
-        
-        with open('/opt/airflow/data/cleaned/district_mapping.txt', 'w', encoding='utf-8') as f:
-            for district, index in district_mapping.items():
-                f.write(f"{index}: {district}\n")
+        # Load district mapping from database
+        logger.info("Loading district mapping from database...")
+        district_mapping = load_district_mapping()
 
         # Add property_type column using the infer_property_type function
         logger.info("Inferring property type...")
         df[['property_type', 'property_type_id']] = df['title'].apply(infer_property_type).apply(pd.Series)
 
-        # Save processed data for visualization (with property_type)
+        # Map district names to IDs from database
+        logger.info("Mapping district names to IDs from database...")
+        df['district_id'] = df['district'].map(district_mapping)
+        
+        # Handle special case: map both "Nam Từ Liêm" and "Bắc Từ Liêm" to "Từ Liêm"
+        logger.info("Handling special district mappings...")
+        tu_liem_id = district_mapping.get('Từ Liêm')
+        if tu_liem_id is not None:
+            df.loc[df['district'].isin(['Nam Từ Liêm', 'Bắc Từ Liêm']), 'district_id'] = tu_liem_id
+            logger.info(f"Mapped 'Nam Từ Liêm' and 'Bắc Từ Liêm' to 'Từ Liêm' (ID: {tu_liem_id})")
+        
+        # Log unmapped districts for debugging
+        unmapped_districts = df[df['district_id'].isna()]['district'].unique()
+        if len(unmapped_districts) > 0:
+            logger.warning(f"Found {len(unmapped_districts)} unmapped districts: {unmapped_districts}")
+        
+        # Keep original district name and drop unmapped rows
+        df = df.dropna(subset=['district_id'])
+        
+        # Convert district_id to integer type
+        logger.info("Converting district_id to integer type...")
+        df['district_id'] = df['district_id'].astype(int)
+        
+        # Save processed data for visualization
         logger.info("Saving visualization data...")
         df.to_csv('/opt/airflow/data/cleaned/visualization_data.tsv', sep='\t', index=False)
         
-        # Map district names to indices
-        logger.info("Mapping district names to indices...")
-        df['district'] = df['district'].map(district_mapping)
-
-        # Save processed data (with property_type)
+        # Save processed data
         logger.info("Saving processed data...")
         df.to_csv('/opt/airflow/data/cleaned/processed_data.tsv', sep='\t', index=False)
         

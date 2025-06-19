@@ -100,6 +100,39 @@ services:
     networks:
       - mlflow-network
 
+  # backend:
+  #   image: ${AIRFLOW_IMAGE:-apache/airflow:2.7.1}
+  #   command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - DATABASE_URL=postgresql://postgres:postgres@real_estate_db:5432/real_estate
+  #     - MLFLOW_TRACKING_URI=http://mlflow:5000
+  #   volumes:
+  #     - ./backend:/opt/airflow/backend
+  #     - ./data:/opt/airflow/data
+  #     - ./models:/opt/airflow/models
+  #   depends_on:
+  #     real_estate_db:
+  #       condition: service_healthy
+  #     mlflow:
+  #       condition: service_started
+  #   networks:
+  #     - mlflow-network
+
+  # telegram-bot:
+  #   image: ${AIRFLOW_IMAGE:-apache/airflow:2.7.1}
+  #   command: python backend/telegram_bot.py
+  #   environment:
+  #     - BACKEND_URL=http://backend:8000
+  #   volumes:
+  #     - ./backend:/opt/airflow/backend
+  #   depends_on:
+  #     backend:
+  #       condition: service_started
+  #   networks:
+  #     - mlflow-network
+
 networks:
   mlflow-network:
     driver: bridge 

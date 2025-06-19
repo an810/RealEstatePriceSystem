@@ -80,13 +80,68 @@ def convert_int_to_phaply(value: int) -> str:
         return "Không xác định"
 
 def get_subscriptions():
-    """Get all active subscriptions from the database"""
+    """Get all active subscriptions from the database with their related data"""
     with engine.connect() as connection:
+        # Get main subscription data
         query = """
-        SELECT * FROM subscription
+        SELECT 
+            s.id, s.user_id, s.user_name, s.user_type,
+            s.min_price, s.max_price, s.min_area, s.max_area,
+            s.num_bedrooms, s.num_toilets
+        FROM subscription s
         """
         result = connection.execute(text(query))
-        return result.fetchall()
+        subscriptions = result.fetchall()
+        
+        # For each subscription, get related district, property type, and legal status data
+        complete_subscriptions = []
+        for sub in subscriptions:
+            # Get district IDs
+            district_query = """
+            SELECT ds.district_id
+            FROM district_subscription ds
+            WHERE ds.user_id = :user_id
+            """
+            district_result = connection.execute(text(district_query), {"user_id": sub.user_id})
+            district_ids = [row.district_id for row in district_result.fetchall()]
+            
+            # Get property type IDs
+            property_type_query = """
+            SELECT pts.property_type_id
+            FROM property_type_subscription pts
+            WHERE pts.user_id = :user_id
+            """
+            property_type_result = connection.execute(text(property_type_query), {"user_id": sub.user_id})
+            property_type_ids = [row.property_type_id for row in property_type_result.fetchall()]
+            
+            # Get legal status IDs
+            legal_query = """
+            SELECT ls.legal_id
+            FROM legal_subscription ls
+            WHERE ls.user_id = :user_id
+            """
+            legal_result = connection.execute(text(legal_query), {"user_id": sub.user_id})
+            legal_ids = [row.legal_id for row in legal_result.fetchall()]
+            
+            # Create complete subscription object
+            complete_sub = {
+                'id': sub.id,
+                'user_id': sub.user_id,
+                'user_name': sub.user_name,
+                'user_type': sub.user_type,
+                'min_price': sub.min_price,
+                'max_price': sub.max_price,
+                'min_area': sub.min_area,
+                'max_area': sub.max_area,
+                'num_bedrooms': sub.num_bedrooms,
+                'num_toilets': sub.num_toilets,
+                'district_ids': district_ids,
+                'property_type_ids': property_type_ids,
+                'legal_ids': legal_ids
+            }
+            complete_subscriptions.append(complete_sub)
+        
+        return complete_subscriptions
 
 def get_properties_by_district(district_id: int):
     """Get properties for a specific district with their URLs"""
@@ -94,7 +149,7 @@ def get_properties_by_district(district_id: int):
         query = """
         SELECT 
             r.url_id, r.price, r.area, r.number_of_bedrooms, r.number_of_toilets,
-            r.legal, r.district_id, r.title, r.property_type_id,
+            r.legal_id, r.district_id, r.title, r.property_type_id,
             r.source, r.url
         FROM real_estate r
         WHERE r.district_id = :district_id AND r.is_available = TRUE
@@ -111,7 +166,7 @@ def prepare_features(properties, search_params):
             prop.area,
             prop.number_of_bedrooms,
             prop.number_of_toilets,
-            prop.legal,
+            prop.legal_id,
             prop.district_id,
             prop.property_type_id
         ])
@@ -169,7 +224,7 @@ def find_matching_properties_for_district(district_id: int, search_params: Dict)
             'area': prop.area,
             'number_of_bedrooms': prop.number_of_bedrooms,
             'number_of_toilets': prop.number_of_toilets,
-            'legal_status': convert_int_to_phaply(prop.legal),
+            'legal_status': convert_int_to_phaply(prop.legal_id),
             'property_type': convert_int_to_property_type(prop.property_type_id),
             'district_id': prop.district_id,
             'similarity_score': 1 - distance
@@ -371,36 +426,57 @@ def process_subscriptions():
     telegram_requirements = {}  # Dict[chat_id, search_params]
 
     for sub in subscriptions:
-        # Parse district IDs from comma-separated string
-        district_ids = [int(did.strip()) for did in sub.district_ids.split(',')]
+        # Skip if no districts, property types, or legal statuses are selected
+        if not sub['district_ids'] or not sub['property_type_ids'] or not sub['legal_ids']:
+            continue
         
-        # Prepare search parameters
-        search_params = {
-            'price_range': (sub.min_price + sub.max_price) / 2,
-            'area_range': (sub.min_area + sub.max_area) / 2,
-            'num_bedrooms': sub.num_bedrooms,
-            'num_toilets': sub.num_toilets,
-            'legal_status_id': sub.legal_status_id,
-            'property_type_id': sub.property_type_id
-        }
-        
-        # Find matches for each district
+        # Find matches for each combination of district, property type, and legal status
         district_matches = {}
-        for district_id in district_ids:
-            matches = find_matching_properties_for_district(district_id, search_params)
-            if matches:
-                district_matches[district_id] = matches
+        
+        for district_id in sub['district_ids']:
+            for property_type_id in sub['property_type_ids']:
+                for legal_id in sub['legal_ids']:
+                    # Prepare search parameters for this combination
+                    search_params = {
+                        'price_range': (sub['min_price'] + sub['max_price']) / 2,
+                        'area_range': (sub['min_area'] + sub['max_area']) / 2,
+                        'num_bedrooms': sub['num_bedrooms'],
+                        'num_toilets': sub['num_toilets'],
+                        'legal_status_id': legal_id,
+                        'property_type_id': property_type_id
+                    }
+                    
+                    matches = find_matching_properties_for_district(district_id, search_params)
+                    if matches:
+                        if district_id not in district_matches:
+                            district_matches[district_id] = []
+                        district_matches[district_id].extend(matches)
         
         if not district_matches:
             continue
         
         # Group by notification type
-        if sub.user_type == 'email':
-            email_properties[sub.user_id] = district_matches
-            email_requirements[sub.user_id] = search_params
-        elif sub.user_type == 'telegram':
-            telegram_properties[sub.user_id] = district_matches
-            telegram_requirements[sub.user_id] = search_params
+        if sub['user_type'] == 'email':
+            email_properties[sub['user_id']] = district_matches
+            # Store search params for email template (use first combination as representative)
+            email_requirements[sub['user_id']] = {
+                'price_range': (sub['min_price'] + sub['max_price']) / 2,
+                'area_range': (sub['min_area'] + sub['max_area']) / 2,
+                'num_bedrooms': sub['num_bedrooms'],
+                'num_toilets': sub['num_toilets'],
+                'legal_status_id': sub['legal_ids'][0],
+                'property_type_id': sub['property_type_ids'][0]
+            }
+        elif sub['user_type'] == 'telegram':
+            telegram_properties[sub['user_id']] = district_matches
+            telegram_requirements[sub['user_id']] = {
+                'price_range': (sub['min_price'] + sub['max_price']) / 2,
+                'area_range': (sub['min_area'] + sub['max_area']) / 2,
+                'num_bedrooms': sub['num_bedrooms'],
+                'num_toilets': sub['num_toilets'],
+                'legal_status_id': sub['legal_ids'][0],
+                'property_type_id': sub['property_type_ids'][0]
+            }
     
     # Send notifications in batch
     batch_send_email_notifications(email_properties, email_requirements)

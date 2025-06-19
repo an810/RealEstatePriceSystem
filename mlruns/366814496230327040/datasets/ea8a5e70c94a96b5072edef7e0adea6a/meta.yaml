@@ -1,0 +1,12 @@
+digest: f52ef5c9
+name: dataset
+profile: '{"num_rows": 9778, "num_elements": 78224}'
+schema: '{"mlflow_colspec": [{"type": "double", "name": "area", "required": true},
+  {"type": "long", "name": "number_of_bedrooms", "required": true}, {"type": "long",
+  "name": "number_of_toilets", "required": true}, {"type": "long", "name": "legal",
+  "required": true}, {"type": "double", "name": "lat", "required": true}, {"type":
+  "double", "name": "lon", "required": true}, {"type": "long", "name": "district",
+  "required": true}, {"type": "long", "name": "property_type_id", "required": true}]}'
+source: '{"tags": {"mlflow.user": "airflow", "mlflow.source.name": "/home/airflow/.local/bin/airflow",
+  "mlflow.source.type": "LOCAL"}}'
+source_type: code

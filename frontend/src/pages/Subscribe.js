@@ -17,8 +17,12 @@ import {
   InputLabel,
   Tabs,
   Tab,
+  Chip,
 } from '@mui/material';
 import axios from 'axios';
+import { useDistricts } from '../hooks/useDistricts';
+import { useLegalStatus } from '../hooks/useLegalStatus';
+import { usePropertyType } from '../hooks/usePropertyType';
 
 const validationSchema = yup.object({
   user_id: yup
@@ -39,32 +43,14 @@ const validationSchema = yup.object({
   num_bedrooms: yup.number().required('Number of bedrooms is required'),
   num_toilets: yup.number().required('Number of toilets is required'),
   districts: yup.array().min(1, 'Select at least one district'),
-  legal_status: yup.string().required('Legal status is required'),
-  property_type: yup.string().required('Property type is required'),
+  legal_statuses: yup.array().min(1, 'Select at least one legal status'),
+  property_types: yup.array().min(1, 'Select at least one property type'),
 });
 
-const districts = [
-  'Ba Đình', 'Ba Vì', 'Cầu Giấy', 'Chương Mỹ', 'Đan Phượng', 'Đông Anh', 
-  'Đống Đa', 'Gia Lâm', 'Hà Đông', 'Hai Bà Trưng', 'Hoài Đức', 'Hoàn Kiếm', 
-  'Hoàng Mai', 'Long Biên', 'Mê Linh', 'Quốc Oai', 'Sóc Sơn', 'Sơn Tây', 
-  'Tây Hồ', 'Thanh Oai', 'Thanh Trì', 'Thanh Xuân', 'Thạch Thất', 'Thường Tín', 
-  'Từ Liêm'
-];
-
-const legalStatuses = [
-  { value: 'Chưa có sổ', label: 'Chưa có sổ' },
-  { value: 'Hợp đồng', label: 'Hợp đồng' },
-  { value: 'Sổ đỏ', label: 'Sổ đỏ' },
-];
-
-const propertyTypes = [
-  { value: 'Chung cư', label: 'Chung cư' },
-  { value: 'Biệt thự', label: 'Biệt thự' },
-  { value: 'Nhà riêng', label: 'Nhà riêng' },
-  { value: 'Đất', label: 'Đất' },
-];
-
 function Subscribe() {
+  const { districts, loading: districtsLoading, error: districtsError } = useDistricts();
+  const { legalStatuses, loading: legalStatusLoading, error: legalStatusError } = useLegalStatus();
+  const { propertyTypes, loading: propertyTypeLoading, error: propertyTypeError } = usePropertyType();
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -89,8 +75,8 @@ function Subscribe() {
       num_bedrooms: 2,
       num_toilets: 2,
       districts: [],
-      legal_status: '',
-      property_type: '',
+      legal_statuses: [],
+      property_types: [],
     },
     validationSchema: validationSchema,
     onSubmit: async (values) => {
@@ -143,6 +129,14 @@ function Subscribe() {
 
   const handleDistrictChange = (event) => {
     formik.setFieldValue('districts', event.target.value);
+  };
+
+  const handleLegalStatusChange = (event) => {
+    formik.setFieldValue('legal_statuses', event.target.value);
+  };
+
+  const handlePropertyTypeChange = (event) => {
+    formik.setFieldValue('property_types', event.target.value);
   };
 
   return (
@@ -280,46 +274,112 @@ function Subscribe() {
                   label="Districts"
                   error={formik.touched.districts && Boolean(formik.errors.districts)}
                 >
-                  {districts.map((district) => (
-                    <MenuItem key={district} value={district}>
-                      {district}
+                  {districtsLoading ? (
+                    <MenuItem disabled>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Loading districts...
                     </MenuItem>
-                  ))}
+                  ) : districtsError ? (
+                    <MenuItem disabled>Error loading districts</MenuItem>
+                  ) : (
+                    districts.map((district) => (
+                      <MenuItem key={district} value={district}>
+                        {district}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
+                {districtsError && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    {districtsError}
+                  </Alert>
+                )}
               </FormControl>
 
               <FormControl fullWidth>
                 <InputLabel>Legal Status</InputLabel>
                 <Select
-                  value={formik.values.legal_status}
-                  onChange={formik.handleChange}
-                  name="legal_status"
+                  multiple
+                  value={formik.values.legal_statuses}
+                  onChange={handleLegalStatusChange}
                   label="Legal Status"
-                  error={formik.touched.legal_status && Boolean(formik.errors.legal_status)}
+                  error={formik.touched.legal_statuses && Boolean(formik.errors.legal_statuses)}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((value) => (
+                        <Chip key={value} label={value} />
+                      ))}
+                    </Box>
+                  )}
                 >
-                  {legalStatuses.map((status) => (
-                    <MenuItem key={status.value} value={status.value}>
-                      {status.label}
+                  {legalStatusLoading ? (
+                    <MenuItem disabled>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Loading legal statuses...
                     </MenuItem>
-                  ))}
+                  ) : legalStatusError ? (
+                    <MenuItem disabled>Error loading legal statuses</MenuItem>
+                  ) : (
+                    legalStatuses.map((status) => (
+                      <MenuItem key={status} value={status}>
+                        {status}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
+                {legalStatusError && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    {legalStatusError}
+                  </Alert>
+                )}
+                {formik.touched.legal_statuses && formik.errors.legal_statuses && (
+                  <Typography color="error" variant="caption">
+                    {formik.errors.legal_statuses}
+                  </Typography>
+                )}
               </FormControl>
 
               <FormControl fullWidth>
                 <InputLabel>Property Type</InputLabel>
                 <Select
-                  value={formik.values.property_type}
-                  onChange={formik.handleChange}
-                  name="property_type"
+                  multiple
+                  value={formik.values.property_types}
+                  onChange={handlePropertyTypeChange}
                   label="Property Type"
-                  error={formik.touched.property_type && Boolean(formik.errors.property_type)}
+                  error={formik.touched.property_types && Boolean(formik.errors.property_types)}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((value) => (
+                        <Chip key={value} label={value} />
+                      ))}
+                    </Box>
+                  )}
                 >
-                  {propertyTypes.map((type) => (
-                    <MenuItem key={type.value} value={type.value}>
-                      {type.label}
+                  {propertyTypeLoading ? (
+                    <MenuItem disabled>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Loading property types...
                     </MenuItem>
-                  ))}
+                  ) : propertyTypeError ? (
+                    <MenuItem disabled>Error loading property types</MenuItem>
+                  ) : (
+                    propertyTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {type}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
+                {propertyTypeError && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    {propertyTypeError}
+                  </Alert>
+                )}
+                {formik.touched.property_types && formik.errors.property_types && (
+                  <Typography color="error" variant="caption">
+                    {formik.errors.property_types}
+                  </Typography>
+                )}
               </FormControl>
 
               <Button

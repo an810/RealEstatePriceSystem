@@ -18,33 +18,14 @@ import {
   Alert,
 } from '@mui/material';
 import axios from 'axios';
-
-const DISTRICTS = [
-  'Ba Đình', 'Ba Vì', 'Cầu Giấy', 'Chương Mỹ', 'Đan Phượng', 'Đông Anh', 
-  'Đống Đa', 'Gia Lâm', 'Hà Đông', 'Hai Bà Trưng', 'Hoài Đức', 'Hoàn Kiếm', 
-  'Hoàng Mai', 'Long Biên', 'Mê Linh', 'Quốc Oai', 'Sóc Sơn', 'Sơn Tây', 
-  'Tây Hồ', 'Thanh Oai', 'Thanh Trì', 'Thanh Xuân', 'Thạch Thất', 'Thường Tín', 
-  'Từ Liêm'
-];
-
-const LEGAL_STATUSES = ['Chưa có sổ', 'Hợp đồng', 'Sổ đỏ'];
-
-const PROPERTY_TYPES = ['Chung cư', 'Biệt thự', 'Nhà riêng', 'Đất'];
-
-const PROPERTY_TYPE_MAPPING = {
-  1: 'Chung cư',
-  2: 'Biệt thự',
-  3: 'Nhà riêng',
-  4: 'Đất'
-};
-
-const LEGAL_STATUS_MAPPING = {
-  0: 'Chưa có sổ',
-  1: 'Hợp đồng',
-  2: 'Sổ đỏ'
-};
+import { useDistricts } from '../hooks/useDistricts';
+import { useLegalStatus } from '../hooks/useLegalStatus';
+import { usePropertyType } from '../hooks/usePropertyType';
 
 const Search = () => {
+  const { districts, loading: districtsLoading, error: districtsError } = useDistricts();
+  const { legalStatuses, loading: legalStatusesLoading, error: legalStatusesError } = useLegalStatus();
+  const { propertyTypes, loading: propertyTypesLoading, error: propertyTypesError } = usePropertyType();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resultsByDistrict, setResultsByDistrict] = useState({});
@@ -60,8 +41,8 @@ const Search = () => {
     num_bedrooms: '',
     num_toilets: '',
     districts: [],
-    legal_status: '',
-    property_type: '',
+    legal_statuses: [],
+    property_types: [],
   });
 
   const handleInputChange = (field, value) => {
@@ -111,11 +92,11 @@ const Search = () => {
   };
 
   const getPropertyTypeText = (typeId) => {
-    return PROPERTY_TYPE_MAPPING[typeId] || 'Unknown';
+    return propertyTypes[typeId - 1] || `Type ${typeId}`;
   };
 
   const getLegalStatusText = (statusId) => {
-    return LEGAL_STATUS_MAPPING[statusId] || 'Unknown';
+    return legalStatuses[statusId] || `Status ${statusId}`;
   };
 
   return (
@@ -197,68 +178,123 @@ const Search = () => {
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Typography variant="subtitle1">Districts</Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {DISTRICTS.map((district) => (
-                    <Chip
-                      key={district}
-                      label={district}
-                      onClick={() => {
-                        if (!formData.districts.includes(district)) {
-                          handleInputChange('districts', [...formData.districts, district]);
-                        }
-                      }}
-                      onDelete={formData.districts.includes(district) ? () => handleDeleteDistrict(district) : undefined}
-                      color={formData.districts.includes(district) ? "primary" : "default"}
-                      sx={{
-                        '& .MuiChip-deleteIcon': {
-                          color: 'rgba(0, 0, 0, 0.54)',
-                          '&:hover': {
-                            color: 'rgba(0, 0, 0, 0.87)',
+                {districtsError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {districtsError}
+                  </Alert>
+                )}
+                {districtsLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {districts.map((district) => (
+                      <Chip
+                        key={district}
+                        label={district}
+                        onClick={() => {
+                          if (!formData.districts.includes(district)) {
+                            handleInputChange('districts', [...formData.districts, district]);
+                          }
+                        }}
+                        onDelete={formData.districts.includes(district) ? () => handleDeleteDistrict(district) : undefined}
+                        color={formData.districts.includes(district) ? "primary" : "default"}
+                        sx={{
+                          '& .MuiChip-deleteIcon': {
+                            color: 'rgba(0, 0, 0, 0.54)',
+                            '&:hover': {
+                              color: 'rgba(0, 0, 0, 0.87)',
+                            },
                           },
-                        },
-                      }}
-                    />
-                  ))}
-                </Box>
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
               </Box>
             </Grid>
 
             {/* Legal Status */}
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth variant="outlined">
-                <InputLabel id="legal-status-label" sx={{ backgroundColor: 'white', px: 1 }}>Legal Status</InputLabel>
-                <Select
-                  labelId="legal-status-label"
-                  value={formData.legal_status}
-                  onChange={(e) => handleInputChange('legal_status', e.target.value)}
-                  required
-                >
-                  {LEGAL_STATUSES.map((status) => (
-                    <MenuItem key={status} value={status}>
-                      {status}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Typography variant="subtitle1">Legal Status</Typography>
+                {legalStatusesError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {legalStatusesError}
+                  </Alert>
+                )}
+                {legalStatusesLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : (
+                  <FormControl fullWidth variant="outlined">
+                    <InputLabel id="legal-status-label" sx={{ backgroundColor: 'white', px: 1 }}>Legal Status</InputLabel>
+                    <Select
+                      labelId="legal-status-label"
+                      multiple
+                      value={formData.legal_statuses}
+                      onChange={(e) => handleInputChange('legal_statuses', e.target.value)}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.map((value) => (
+                            <Chip key={value} label={value} />
+                          ))}
+                        </Box>
+                      )}
+                      required
+                    >
+                      {legalStatuses.map((status) => (
+                        <MenuItem key={status} value={status}>
+                          {status}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              </Box>
             </Grid>
 
             {/* Property Type */}
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth variant="outlined">
-                <InputLabel id="property-type-label" sx={{ backgroundColor: 'white', px: 1 }}>Property Type</InputLabel>
-                <Select
-                  labelId="property-type-label"
-                  value={formData.property_type}
-                  onChange={(e) => handleInputChange('property_type', e.target.value)}
-                  required
-                >
-                  {PROPERTY_TYPES.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Typography variant="subtitle1">Property Type</Typography>
+                {propertyTypesError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {propertyTypesError}
+                  </Alert>
+                )}
+                {propertyTypesLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : (
+                  <FormControl fullWidth variant="outlined">
+                    <InputLabel id="property-type-label" sx={{ backgroundColor: 'white', px: 1 }}>Property Type</InputLabel>
+                    <Select
+                      labelId="property-type-label"
+                      multiple
+                      value={formData.property_types}
+                      onChange={(e) => handleInputChange('property_types', e.target.value)}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.map((value) => (
+                            <Chip key={value} label={value} />
+                          ))}
+                        </Box>
+                      )}
+                      required
+                    >
+                      {propertyTypes.map((type) => (
+                        <MenuItem key={type} value={type}>
+                          {type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+              </Box>
             </Grid>
 
             {/* Submit Button */}

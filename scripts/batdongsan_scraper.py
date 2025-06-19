@@ -14,7 +14,7 @@ import time
 
 
 # Constants
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data/crawled')
 
 # Configure logging
 logging.basicConfig(

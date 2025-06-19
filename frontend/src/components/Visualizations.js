@@ -346,7 +346,7 @@ const Visualizations = () => {
             hovertemplate:
               "<b>%{text}</b><br>" +
               "Area: %{x:.0f} m²<br>" +
-              "Price: %{y:.1f} tỷ VND<br>" +
+              "Price: %{y:.1f} billion VND<br>" +
               "District: %{customdata[0]}<br>" +
               "Type: %{customdata[1]}<extra></extra>",
           };
@@ -395,7 +395,7 @@ const Visualizations = () => {
             hovertemplate:
               "<b>%{text}</b><br>" +
               "District: %{customdata[0]}<br>" +
-              "Price: %{customdata[1]:.1f} tỷ VND<br>" +
+              "Price: %{customdata[1]:.1f} billion VND<br>" +
               "Area: %{customdata[2]:.0f} m²<br>" +
               "Type: %{customdata[3]}<extra></extra>",
           };

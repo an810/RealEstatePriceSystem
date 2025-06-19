@@ -20,7 +20,7 @@ from selenium.webdriver.chrome.options import Options
 import time
 
 # Constants
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data')
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data/crawled')
 
 # Configure logging
 logging.basicConfig(
@@ -261,7 +261,7 @@ def scrape_data():
 
         # Use threading instead of multiprocessing
         lock = Lock()
-        crawled_ids = load_crawled_ids(os.path.join(DATA_DIR, "hn_nhatot_url.tsv"))
+        crawled_ids = load_crawled_ids(os.path.join(DATA_DIR, "nhatot_url.tsv"))
         url_queue = Queue()
         
         # Add URLs to queue
