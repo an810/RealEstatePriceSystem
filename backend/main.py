@@ -5,6 +5,9 @@ from visualization import router as visualization_router
 from mlflow_serve import router as mlflow_serve_router
 from subsribe import router as subscribe_router
 from search import router as search_router
+from district import router as district_router
+from legal_status import router as legal_status_router
+from property_type import router as property_type_router
 
 from search import load_property_data, property_cache
 
@@ -38,7 +41,9 @@ app.include_router(visualization_router, tags=["visualization"])
 app.include_router(mlflow_serve_router, tags=["mlflow-serve"])
 app.include_router(subscribe_router, tags=["subscribe"])
 app.include_router(search_router, tags=["search"])
-
+app.include_router(district_router, tags=["districts"])
+app.include_router(legal_status_router, tags=["legal_status"])
+app.include_router(property_type_router, tags=["property_type"])
 @app.get("/")
 async def root():
     return {"message": "Welcome to House Price Prediction API"}

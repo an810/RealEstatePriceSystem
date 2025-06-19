@@ -218,7 +218,7 @@ async def process_callback_query(callback_query):
         user_data[chat_id] = {}
         await send_telegram_message(
             chat_id,
-            "Let's set up your subscription! 📬\n\n"
+            "Let's set up your subscription! 📬\n"
             "First, enter the minimum price (in billion VND):"
         )
     elif data == "unsubscribe":
@@ -317,11 +317,11 @@ async def process_callback_query(callback_query):
                         'min_area': user_data[chat_id]['min_area'],
                         'max_area': user_data[chat_id]['max_area']
                     },
-                    'num_bedrooms': user_data[chat_id].get('number_of_bedrooms', 0),
-                    'num_toilets': user_data[chat_id].get('number_of_toilets', 0),
+                    'num_bedrooms': user_data[chat_id].get('num_bedrooms', 0),
+                    'num_toilets': user_data[chat_id].get('num_toilets', 0),
                     'districts': [district],
-                    'legal_status': user_data[chat_id]['legal_status'],
-                    'property_type': user_data[chat_id]['property_type']
+                    'legal_statuses': [user_data[chat_id]['legal_status']],
+                    'property_types': [user_data[chat_id]['property_type']]
                 }
                 logger.info(f"Making search request to {BACKEND_URL}/search with data: {json.dumps(search_request, indent=2)}")
                 async with httpx.AsyncClient() as client:
@@ -338,7 +338,7 @@ async def process_callback_query(callback_query):
                                         message += f"💰 {prop['price']:,.2f} billion VND\n"
                                         message += f"🏠 {convert_int_to_property_type(prop['property_type_id'])}\n"
                                         message += f"📐 {prop['area']}m² | 🛏️ {prop['number_of_bedrooms']} | 🚿 {prop['number_of_toilets']}\n"
-                                        message += f"📜 {prop['legal_status']}\n"
+                                        message += f"📜 {convert_int_to_phaply(prop['legal'])}\n"
                                         message += f"🔗 {prop['url']}\n\n"
                             await send_telegram_message(chat_id, message)
                         else:
@@ -386,11 +386,11 @@ async def process_callback_query(callback_query):
                         "min_area": user_data[chat_id]["min_area"],
                         "max_area": user_data[chat_id]["max_area"]
                     },
-                    "num_bedrooms": user_data[chat_id]['number_of_bedrooms'],
-                    "num_toilets": user_data[chat_id]['number_of_toilets'],
+                    "num_bedrooms": user_data[chat_id]['num_bedrooms'],
+                    "num_toilets": user_data[chat_id]['num_toilets'],
                     "districts": [district],
-                    "legal_status": user_data[chat_id]["legal_status"],
-                    "property_type": user_data[chat_id]["property_type"],
+                    "legal_statuses": [user_data[chat_id]["legal_status"]],
+                    "property_types": [user_data[chat_id]["property_type"]],
                     "user_id": str(chat_id),
                     "user_type": "telegram"
                 }
@@ -470,6 +470,26 @@ async def process_update(update):
                 try:
                     max_area = float(text)
                     user_input["max_area"] = max_area
+                    await send_telegram_message(chat_id, "Enter the number of bedrooms:")
+                except ValueError:
+                    await send_telegram_message(chat_id, "Please enter a valid number.")
+            elif "num_bedrooms" not in user_input:
+                try:
+                    num_bedrooms = int(text)
+                    if num_bedrooms < 0:
+                        await send_telegram_message(chat_id, "Please enter a non-negative number.")
+                        return
+                    user_input["num_bedrooms"] = num_bedrooms
+                    await send_telegram_message(chat_id, "Enter the number of toilets:")
+                except ValueError:
+                    await send_telegram_message(chat_id, "Please enter a valid number.")
+            elif "num_toilets" not in user_input:
+                try:
+                    num_toilets = int(text)
+                    if num_toilets < 0:
+                        await send_telegram_message(chat_id, "Please enter a non-negative number.")
+                        return
+                    user_input["num_toilets"] = num_toilets
                     await send_telegram_message(chat_id, "Select the property type:", reply_markup=get_property_type_keyboard())
                 except ValueError:
                     await send_telegram_message(chat_id, "Please enter a valid number.")
@@ -477,6 +497,7 @@ async def process_update(update):
                 await send_telegram_message(chat_id, "Select the property type:", reply_markup=get_property_type_keyboard())
             elif "legal_status" not in user_input:
                 await send_telegram_message(chat_id, "Select the legal status:", reply_markup=get_legal_status_keyboard())
+
 
         elif state == UserState.PREDICTING:
             if "area" not in user_input:
@@ -540,7 +561,7 @@ async def process_update(update):
                     if num_bedrooms < 0:
                         await send_telegram_message(chat_id, "Please enter a non-negative number.")
                         return
-                    user_input["number_of_bedrooms"] = num_bedrooms
+                    user_input["num_bedrooms"] = num_bedrooms
                     await send_telegram_message(chat_id, "Enter the number of toilets:")
                 except ValueError:
                     await send_telegram_message(chat_id, "Please enter a valid number.")
@@ -550,7 +571,7 @@ async def process_update(update):
                     if num_toilets < 0:
                         await send_telegram_message(chat_id, "Please enter a non-negative number.")
                         return
-                    user_input["number_of_toilets"] = num_toilets
+                    user_input["num_toilets"] = num_toilets
                     await send_telegram_message(chat_id, "Select the property type:", reply_markup=get_property_type_keyboard())
                 except ValueError:
                     await send_telegram_message(chat_id, "Please enter a valid number.")
@@ -572,11 +593,11 @@ async def process_update(update):
                         "min_area": user_input["min_area"],
                         "max_area": user_input["max_area"]
                     },
-                    "num_bedrooms": user_input["number_of_bedrooms"],
-                    "num_toilets": user_input["number_of_toilets"],
+                    "num_bedrooms": user_input["num_bedrooms"],
+                    "num_toilets": user_input["num_toilets"],
                     "districts": [user_input["district"]],
-                    "legal_status": user_input["legal_status"],
-                    "property_type": user_input["property_type"],
+                    "legal_statuses": [user_input["legal_status"]],
+                    "property_types": [user_input["property_type"]],
                     "user_id": str(chat_id),
                     "user_type": "telegram"
                 }
@@ -603,6 +624,7 @@ async def process_update(update):
 async def polling_loop():
     offset = 0
     while True:
+        logger.info("Polling for updates...")
         try:
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.get(f"{TELEGRAM_API}/getUpdates", params={"timeout": 30, "offset": offset})

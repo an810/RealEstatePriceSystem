@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from mlflow.tracking import MlflowClient
 import logging
 import os
+from sqlalchemy import create_engine, text
 
 
 # Configure logging
@@ -17,6 +18,21 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI router
 router = APIRouter()
+
+# Database configuration
+DB_CONFIG = {
+    'dbname': 'real_estate',
+    'user': 'postgres',
+    'password': 'postgres',
+    'host': 'localhost',
+    'port': '5433'
+}
+
+def get_db_engine():
+    """Get database engine instance"""
+    return create_engine(
+        f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['dbname']}"
+    )
 
 # Define required features for each model in the exact order expected by the model
 MODEL_FEATURES = [
@@ -79,17 +95,26 @@ DISTRICT_COORDINATES = {
     'Ứng Hòa': {'lat': 20.7167, 'lon': 105.8333}
 }
 
-# Load district mapping
+# Load district mapping from database
 DISTRICT_MAPPING = {}
-try:
-    with open('/Users/ducan/Documents/Graduation-Thesis/RealEstatePriceSystem/data/cleaned/district_mapping.txt', 'r', encoding='utf-8') as f:
-        for line in f:
-            if ':' in line:
-                district_id, district_name = line.strip().split(': ')
-                DISTRICT_MAPPING[district_name.strip()] = int(district_id)
-except Exception as e:
-    logger.error(f"Error loading district mapping: {str(e)}")
-    raise
+
+def load_district_mapping():
+    """Load district mapping from database"""
+    global DISTRICT_MAPPING
+    try:
+        engine = get_db_engine()
+        with engine.connect() as conn:
+            query = """
+                SELECT district_id, district 
+                FROM district_mapping 
+                ORDER BY district_id
+            """
+            result = conn.execute(text(query))
+            DISTRICT_MAPPING = {row.district: row.district_id for row in result}
+            logger.info(f"Loaded {len(DISTRICT_MAPPING)} district mappings from database")
+    except Exception as e:
+        logger.error(f"Error loading district mapping from database: {str(e)}")
+        raise
 
 # Load URL mappings
 BATDONGSAN_URLS = {}
@@ -101,15 +126,15 @@ def load_url_mappings():
     
     try:
         # Load batdongsan URLs
-        if os.path.exists('data/output/batdongsan_url.tsv'):
-            with open('data/cleaned/batdongsan_url.tsv', 'r', encoding='utf-8') as f:
+        if os.path.exists('data/crawled/batdongsan_url.tsv'):
+            with open('data/crawled/batdongsan_url.tsv', 'r', encoding='utf-8') as f:
                 for line in f:
                     url_id, url = line.strip().split('\t')
                     BATDONGSAN_URLS[url_id.strip()] = url.strip()
         
         # Load nhatot URLs
-        if os.path.exists('data/output/nhatot_url.tsv'):
-            with open('data/output/nhatot_url.tsv', 'r', encoding='utf-8') as f:
+        if os.path.exists('data/crawled/nhatot_url.tsv'):
+            with open('data/crawled/nhatot_url.tsv', 'r', encoding='utf-8') as f:
                 for line in f:
                     url_id, url = line.strip().split('\t')
                     NHATOT_URLS[url_id.strip()] = url.strip()
@@ -118,21 +143,21 @@ def load_url_mappings():
         logger.error(f"Error loading URL mappings: {str(e)}")
         raise
 
-def get_property_url(url_id):
-    """Get URL for a property based on its ID format."""
-    # Check if it's a batdongsan ID (numeric)
-    if url_id.isdigit():
-        return {
-            'source': 'batdongsan',
-            'url': BATDONGSAN_URLS.get(url_id)
-        }
-    # Check if it's a nhatot ID (starts with 'pr')
-    elif url_id.startswith('pr'):
-        return {
-            'source': 'nhatot',
-            'url': NHATOT_URLS.get(url_id)
-        }
-    return None
+# def get_property_url(url_id):
+#     """Get URL for a property based on its ID format."""
+#     # Check if it's a batdongsan ID (numeric)
+#     if url_id.isdigit():
+#         return {
+#             'source': 'batdongsan',
+#             'url': BATDONGSAN_URLS.get(url_id)
+#         }
+#     # Check if it's a nhatot ID (starts with 'pr')
+#     elif url_id.startswith('pr'):
+#         return {
+#             'source': 'nhatot',
+#             'url': NHATOT_URLS.get(url_id)
+#         }
+#     return None
 
 def validate_input_data(data, required_features):
     """Validate input data has all required features."""
@@ -198,9 +223,10 @@ mlflow.set_tracking_uri("http://localhost:5001")
 # Load the models and URL mappings
 try:
     load_models()
+    load_district_mapping()  # Load district mapping from database
     load_url_mappings()
 except Exception as e:
-    logger.error(f"Error loading models or URL mappings: {str(e)}")
+    logger.error(f"Error loading models, district mapping, or URL mappings: {str(e)}")
     raise
 
 @router.post('/predict-price')
@@ -274,10 +300,11 @@ async def reload_models():
     """Endpoint to reload models with the latest production versions."""
     try:
         load_models()
-        load_url_mappings()  # Also reload URL mappings
-        return {'message': 'Models and URL mappings reloaded successfully'}
+        load_district_mapping()  # Load district mapping from database
+        load_url_mappings()
+        return {'message': 'Models, district mapping, and URL mappings reloaded successfully'}
     except Exception as e:
-        logger.error(f"Error reloading models: {str(e)}")
+        logger.error(f"Error reloading models, district mapping, or URL mappings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':

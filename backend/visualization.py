@@ -3,8 +3,24 @@ import json
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
 import os
+from sqlalchemy import text, create_engine
 
 router = APIRouter()
+
+# Database configuration
+DB_CONFIG = {
+    'dbname': 'real_estate',
+    'user': 'postgres',
+    'password': 'postgres',
+    'host': 'localhost',
+    'port': '5433'
+}
+
+def get_db_engine():
+    """Get database engine instance"""
+    return create_engine(
+        f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['dbname']}"
+    )
 
 # Define color schemes
 PROPERTY_TYPE_COLORS = {
@@ -13,14 +29,6 @@ PROPERTY_TYPE_COLORS = {
     "Nhà riêng": "#2ca02c",  # Green
     "Đất": "#d62728",  # Red
     "Khác": "#9467bd"   # Purple
-}
-
-# Define legal status mapping
-LEGAL_STATUS_MAPPING = {
-    0: "Chưa có sổ",
-    1: "Hợp đồng mua bán",
-    2: "Sổ đỏ/Sổ hồng",
-    -1: "Không xác định"
 }
 
 # Define property type mapping
@@ -89,12 +97,40 @@ GEOJSON_NAME_MAP = {
     "Ung Hoa": "Ứng Hòa"
 }
 
-
-
 def load_and_process_data() -> Dict[str, Any]:
     try:
-        # Load the real estate data
-        df = pd.read_csv("/Users/ducan/Documents/Graduation-Thesis/RealEstatePriceSystem/data/cleaned/visualization_data.tsv", sep="\t")
+        # Load data from database instead of TSV file
+        engine = get_db_engine()
+        
+        query = """
+        SELECT 
+            re.url_id,
+            re.title,
+            re.area,
+            re.price,
+            re.number_of_bedrooms,
+            re.number_of_toilets,
+            re.legal_id,
+            re.property_type_id,
+            re.district_id,
+            re.province,
+            re.lat,
+            re.lon,
+            re.source,
+            re.url,
+            dm.district,
+            ptm.property_type,
+            lm.legal
+        FROM real_estate re
+        LEFT JOIN district_mapping dm ON re.district_id = dm.district_id
+        LEFT JOIN property_type_mapping ptm ON re.property_type_id = ptm.property_type_id
+        LEFT JOIN legal_mapping lm ON re.legal_id = lm.legal_id
+        WHERE re.is_available = TRUE
+        """
+        
+        with engine.connect() as connection:
+            result = connection.execute(text(query))
+            df = pd.DataFrame(result.fetchall(), columns=result.keys())
         
         # Clean data
         required_columns = ["area", "price", "lat", "lon", "property_type", "district", "property_type_id"]
@@ -125,7 +161,7 @@ def load_and_process_data() -> Dict[str, Any]:
             "x": df_clean["price"].tolist(),
             "nbins": 50,
             "title": "Distribution of Property Prices (in billion VND)",
-            "xaxis_title": "Price (tỷ VND)",
+            "xaxis_title": "Price (billion VND)",
             "yaxis_title": "Count",
             "color": "#1f77b4"  # Blue
         }
@@ -172,7 +208,7 @@ def load_and_process_data() -> Dict[str, Any]:
             "color": [PROPERTY_TYPE_COLORS.get(pt, "#9467bd") for pt in df_clean["property_type"]],
             "title": "Price vs Area by Property Type",
             "xaxis_title": "Area (m²)",
-            "yaxis_title": "Price (tỷ VND)",
+            "yaxis_title": "Price (billion VND)",
             "hover_data": {
                 "title": df_clean["title"].tolist() if "title" in df_clean.columns else [""] * len(df_clean),
                 "district": df_clean["district"].tolist(),
@@ -227,7 +263,7 @@ def load_and_process_data() -> Dict[str, Any]:
         legal_status_counts = df_clean["legal"].value_counts()
         legal_status_pie = {
             "type": "pie",
-            "labels": [LEGAL_STATUS_MAPPING.get(status, "Không xác định") for status in legal_status_counts.index],
+            "labels": legal_status_counts.index.tolist(),
             "values": legal_status_counts.values.tolist(),
             "title": "Legal Status Distribution",
             "colors": ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f"]
@@ -243,7 +279,7 @@ def load_and_process_data() -> Dict[str, Any]:
             "x": df_clean["price_per_area"].tolist(),
             "nbins": 50,
             "title": "Distribution of Price per Area",
-            "xaxis_title": "Price per Area (triệu VND/m²)",
+            "xaxis_title": "Price per Area (million VND/m²)",
             "yaxis_title": "Count",
             "color": "#1f77b4"  # Blue
         }
@@ -275,7 +311,7 @@ def load_and_process_data() -> Dict[str, Any]:
             "data": price_per_area_data,
             "title": "Average Price per Area by District and Property Type",
             "xaxis_title": "District",
-            "yaxis_title": "Price per Area (triệu VND/m²)",
+            "yaxis_title": "Price per Area (million VND/m²)",
             "colors": [PROPERTY_TYPE_COLORS.get(PROPERTY_TYPE_MAPPING.get(pt, "Khác"), "#9467bd") for pt in property_types]
         }
 
@@ -337,14 +373,14 @@ def load_and_process_data() -> Dict[str, Any]:
                 "opacity": 0.8
             },
             "colorbar": {
-                "title": "Avg Price (tỷ VND)"
+                "title": "Avg Price (billion VND)"
             },
             "labels": {
-                "avg_price": "Avg Price (tỷ VND)"
+                "avg_price": "Avg Price (billion VND)"
             },
             "center": {"lat": 21.0285, "lon": 105.8542},
             "zoom": 9,
-            "title": "Average Real Estate Price by District (tỷ VND)",
+            "title": "Average Real Estate Price by District (billion VND)",
             "district_labels": {
                 "lat": lat_list,
                 "lon": lon_list,
@@ -364,20 +400,10 @@ def load_and_process_data() -> Dict[str, Any]:
             "price_per_area_stats": price_per_area_bar,
             "price_per_area_distribution": price_per_area_dist
         }
-    except pd.errors.EmptyDataError:
-        raise HTTPException(
-            status_code=400,
-            detail="The input file is empty"
-        )
-    except pd.errors.ParserError:
-        raise HTTPException(
-            status_code=400,
-            detail="Error parsing the input file. Please check the file format."
-        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail=f"Error loading data from database: {str(e)}"
         )
 
 @router.get("/api/visualizations")

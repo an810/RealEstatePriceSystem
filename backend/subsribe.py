@@ -22,25 +22,83 @@ def get_db_engine():
     )
 
 def load_district_mapping():
-    """Load district mapping from file"""
+    """Load district mapping from database"""
     mapping = {}
-    with open('/Users/ducan/Documents/Graduation-Thesis/RealEstatePriceSystem/data/cleaned/district_mapping.txt', 'r', encoding='utf-8') as f:
-        for line in f:
-            if ':' in line:
-                id_str, name = line.strip().split(':')
-                mapping[name.strip()] = int(id_str)
-    return mapping
+    try:
+        engine = get_db_engine()
+        with engine.connect() as conn:
+            query = """
+                SELECT district_id, district 
+                FROM district_mapping 
+                ORDER BY district_id
+            """
+            result = conn.execute(text(query))
+            for row in result:
+                mapping[row.district] = row.district_id
+        return mapping
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load district mapping from database: {str(e)}"
+        )
 
-def convert_phaply_to_int(value: str) -> int:
+def load_legal_status_mapping():
+    """Load legal status mapping from database"""
+    mapping = {}
+    try:
+        engine = get_db_engine()
+        with engine.connect() as conn:
+            query = """
+                SELECT legal_id, legal 
+                FROM legal_mapping 
+                ORDER BY legal_id
+            """
+            result = conn.execute(text(query))
+            for row in result:
+                mapping[row.legal] = row.legal_id
+        return mapping
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load legal status mapping from database: {str(e)}"
+        )
+
+def load_property_type_mapping():
+    """Load property type mapping from database"""
+    mapping = {}
+    try:
+        engine = get_db_engine()
+        with engine.connect() as conn:
+            query = """
+                SELECT property_type_id, property_type 
+                FROM property_type_mapping 
+                ORDER BY property_type_id
+            """
+            result = conn.execute(text(query))
+            for row in result:
+                mapping[row.property_type] = row.property_type_id
+        return mapping
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load property type mapping from database: {str(e)}"
+        )
+
+def convert_legal_status_to_int(value: str) -> int:
     """Convert legal status string to integer code"""
-    if any(substring in str(value) for substring in ['chưa', 'Chưa', 'đang', 'Đang', 'chờ', 'Chờ', 'làm sổ']):
-        return 0
-    elif any(substring in str(value) for substring in ['Hợp đồng', 'hợp đồng', 'HĐMB', 'HDMB']):
-        return 1
-    elif any(substring in str(value) for substring in ['sổ đỏ', 'Sổ đỏ', 'SỔ ĐỎ', 'Có sổ', 'Sổ hồng', 'sổ hồng', 'SỔ HỒNG', 'Đã có', 'đã có', 'sẵn sổ', 'Sẵn sổ', 'sổ đẹp', 'Sổ đẹp', 'đầy đủ', 'Đầy đủ', 'rõ ràng', 'Rõ ràng', 'chính chủ', 'Chính chủ', 'sẵn sàng', 'Sẵn sàng']):
-        return 2
-    else:
-        return -1
+    legal_mapping = load_legal_status_mapping()
+    return legal_mapping.get(value, -1)
+
+def convert_property_type_to_int(value: str) -> int:
+    """Convert property type string to integer code"""
+    property_mapping = load_property_type_mapping()
+    return property_mapping.get(value, -1)
+
+def convert_int_to_property_type(value: int) -> str:
+    """Convert property type integer code to text format"""
+    property_mapping = load_property_type_mapping()
+    reverse_mapping = {v: k for k, v in property_mapping.items()}
+    return reverse_mapping.get(value, "Không xác định")
 
 class PriceRange(BaseModel):
     min_price: float = Field(..., description="Minimum price in VND")
@@ -57,29 +115,10 @@ class SubscribeRequest(BaseModel):
     num_bedrooms: int = Field(..., description="Number of bedrooms")
     num_toilets: int = Field(..., description="Number of toilets")
     districts: List[str] = Field(..., description="List of district names in Hanoi")
-    legal_status: str = Field(..., description="Legal status of the property")
-    property_type: str = Field(..., description="Type of property")
+    legal_statuses: List[str] = Field(..., description="List of legal statuses of the property")
+    property_types: List[str] = Field(..., description="List of property types")
     user_id: str = Field(..., description="User identifier (email or telegram ID)")
     user_type: str = Field(..., description="Type of user (email or telegram)")
-
-# Property type mapping
-PROPERTY_TYPE_MAPPING = {
-    'Chung cư': 1,
-    'Biệt thự': 2,
-    'Nhà riêng': 3,
-    'Đất': 4
-}
-
-def convert_property_type_to_int(value: str) -> int:
-    """Convert property type string to integer code"""
-    return PROPERTY_TYPE_MAPPING.get(value, -1)
-
-def convert_int_to_property_type(value: int) -> str:
-    """Convert property type integer code to text format"""
-    for prop_type, prop_id in PROPERTY_TYPE_MAPPING.items():
-        if prop_id == value:
-            return prop_type
-    return "Không xác định"
 
 def validate_ranges(price_range: PriceRange, area_range: AreaRange):
     """Validate price and area ranges"""
@@ -114,40 +153,58 @@ def get_district_ids(districts: List[str]) -> List[int]:
     
     return district_ids
 
-def create_subscription_table(connection):
-    """Create subscription table if it doesn't exist"""
-    connection.execute(text("""
-        CREATE TABLE IF NOT EXISTS subscription (
-            id SERIAL PRIMARY KEY,
-            user_name VARCHAR(255) NOT NULL,
-            min_price FLOAT NOT NULL,
-            max_price FLOAT NOT NULL,
-            min_area FLOAT NOT NULL,
-            max_area FLOAT NOT NULL,
-            num_bedrooms INTEGER NOT NULL,
-            num_toilets INTEGER NOT NULL,
-            district_ids VARCHAR(255) NOT NULL,
-            legal_status_id INTEGER NOT NULL,
-            property_type_id INTEGER NOT NULL,
-            user_id VARCHAR(255) NOT NULL,
-            user_type VARCHAR(10) NOT NULL,
-            created_at TIMESTAMP NOT NULL
-        )
-    """))
-
-def save_subscription(connection, subscription_data: dict):
-    """Save subscription data to database"""
-    connection.execute(text("""
+def save_subscription_with_relations(connection, subscription_data: dict, district_ids: List[int], legal_status_ids: List[int], property_type_ids: List[int]):
+    """Save subscription data to database with intermediate tables"""
+    # Insert main subscription record
+    result = connection.execute(text("""
         INSERT INTO subscription (
-            user_name, min_price, max_price, min_area, max_area,
-            num_bedrooms, num_toilets, district_ids,
-            legal_status_id, property_type_id, user_id, user_type, created_at
+            user_id, user_name, user_type, min_price, max_price, min_area, max_area,
+            num_bedrooms, num_toilets, created_at, updated_at
         ) VALUES (
-            :user_name, :min_price, :max_price, :min_area, :max_area,
-            :num_bedrooms, :num_toilets, :district_ids,
-            :legal_status_id, :property_type_id, :user_id, :user_type, :created_at
-        )
+            :user_id, :user_name, :user_type, :min_price, :max_price, :min_area, :max_area,
+            :num_bedrooms, :num_toilets, :created_at, :updated_at
+        ) RETURNING id
     """), subscription_data)
+    
+    subscription_id = result.fetchone()[0]
+    
+    # Insert district subscriptions
+    for district_id in district_ids:
+        connection.execute(text("""
+            INSERT INTO district_subscription (user_id, district_id, created_at)
+            VALUES (:user_id, :district_id, :created_at)
+        """), {
+            "user_id": subscription_data["user_id"],
+            "district_id": district_id,
+            "created_at": subscription_data["created_at"],
+            "updated_at": subscription_data["updated_at"]
+        })
+    
+    # Insert legal status subscriptions
+    for legal_status_id in legal_status_ids:
+        connection.execute(text("""
+            INSERT INTO legal_subscription (user_id, legal_id, created_at)
+            VALUES (:user_id, :legal_id, :created_at)
+        """), {
+            "user_id": subscription_data["user_id"],
+            "legal_id": legal_status_id,
+            "created_at": subscription_data["created_at"],
+            "updated_at": subscription_data["updated_at"]
+        })
+    
+    # Insert property type subscriptions
+    for property_type_id in property_type_ids:
+        connection.execute(text("""
+            INSERT INTO property_type_subscription (user_id, property_type_id, created_at)
+            VALUES (:user_id, :property_type_id, :created_at)
+        """), {
+            "user_id": subscription_data["user_id"],
+            "property_type_id": property_type_id,
+            "created_at": subscription_data["created_at"],
+            "updated_at": subscription_data["updated_at"]
+        })
+    
+    return subscription_id
 
 @router.post("/subscribe")
 async def subscribe(request: SubscribeRequest):
@@ -163,15 +220,37 @@ async def subscribe(request: SubscribeRequest):
         # Convert district names to IDs
         district_ids = get_district_ids(request.districts)
         
-        # Convert legal status
-        legal_status_id = convert_phaply_to_int(request.legal_status)
-        if legal_status_id == -1:
-            raise HTTPException(status_code=400, detail="Invalid legal status")
+        # Convert legal statuses to IDs
+        legal_status_ids = []
+        invalid_legal_statuses = []
+        for legal_status in request.legal_statuses:
+            legal_status_id = convert_legal_status_to_int(legal_status)
+            if legal_status_id == -1:
+                invalid_legal_statuses.append(legal_status)
+            else:
+                legal_status_ids.append(legal_status_id)
+        
+        if invalid_legal_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid legal statuses: {', '.join(invalid_legal_statuses)}"
+            )
 
-        # Convert property type
-        property_type_id = convert_property_type_to_int(request.property_type)
-        if property_type_id == -1:
-            raise HTTPException(status_code=400, detail="Invalid property type")
+        # Convert property types to IDs
+        property_type_ids = []
+        invalid_property_types = []
+        for property_type in request.property_types:
+            property_type_id = convert_property_type_to_int(property_type)
+            if property_type_id == -1:
+                invalid_property_types.append(property_type)
+            else:
+                property_type_ids.append(property_type_id)
+        
+        if invalid_property_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid property types: {', '.join(invalid_property_types)}"
+            )
         
         # Prepare subscription data
         subscription_data = {
@@ -182,23 +261,23 @@ async def subscribe(request: SubscribeRequest):
             "max_area": request.area_range.max_area,
             "num_bedrooms": request.num_bedrooms,
             "num_toilets": request.num_toilets,
-            "district_ids": ','.join(map(str, district_ids)),  # Convert array to comma-separated string
-            "legal_status_id": legal_status_id,
-            "property_type_id": property_type_id,
             "user_id": request.user_id,
             "user_type": request.user_type,
-            "created_at": datetime.now()
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
         }
         
         # Save to database
         engine = get_db_engine()
         with engine.begin() as connection:
-            create_subscription_table(connection)
-            save_subscription(connection, subscription_data)
+            subscription_id = save_subscription_with_relations(
+                connection, subscription_data, district_ids, legal_status_ids, property_type_ids
+            )
         
         return {
             "message": "Subscription created successfully",
             "data": {
+                "subscription_id": subscription_id,
                 "user_name": request.user_name,
                 "price_range": {
                     "min": request.price_range.min_price,
@@ -211,8 +290,8 @@ async def subscribe(request: SubscribeRequest):
                 "num_bedrooms": request.num_bedrooms,
                 "num_toilets": request.num_toilets,
                 "district_ids": district_ids,
-                "legal_status_id": legal_status_id,
-                "property_type_id": property_type_id,
+                "legal_status_ids": legal_status_ids,
+                "property_type_ids": property_type_ids,
                 "user_id": request.user_id
             }
         }
@@ -227,7 +306,21 @@ async def unsubscribe(user_id: str):
     try:
         engine = get_db_engine()
         with engine.begin() as connection:
-            # Delete all subscriptions for the given user_id
+            # Delete from intermediate tables first
+            connection.execute(
+                text("DELETE FROM district_subscription WHERE user_id = :user_id"),
+                {"user_id": user_id}
+            )
+            connection.execute(
+                text("DELETE FROM legal_subscription WHERE user_id = :user_id"),
+                {"user_id": user_id}
+            )
+            connection.execute(
+                text("DELETE FROM property_type_subscription WHERE user_id = :user_id"),
+                {"user_id": user_id}
+            )
+            
+            # Delete from main subscription table
             result = connection.execute(
                 text("DELETE FROM subscription WHERE user_id = :user_id"),
                 {"user_id": user_id}
