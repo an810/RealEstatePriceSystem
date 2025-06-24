@@ -129,12 +129,7 @@ def train_model(**context) -> Dict[str, Any]:
                     lon,
                     district_id as district,
                     property_type_id
-                FROM real_estate 
-                WHERE is_available = TRUE 
-                AND price > 0 
-                AND area > 0
-                AND lat IS NOT NULL 
-                AND lon IS NOT NULL
+                FROM real_estate
                 """
                 
                 logger.info("Loading data from database...")
@@ -186,10 +181,10 @@ def train_model(**context) -> Dict[str, Any]:
         setup_mlflow()
         
         # Load data from database
-        # df = load_data_from_db()
+        df = load_data_from_db()
 
         # Load data from file
-        df = load_data_from_file()
+        # df = load_data_from_file()
         
         # Prepare features and target
         feature_columns = ['area', 'number_of_bedrooms', 'number_of_toilets', 'legal', 'lat', 'lon', 'district', 'property_type_id']
