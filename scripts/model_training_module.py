@@ -84,7 +84,7 @@ def train_model(**context) -> Dict[str, Any]:
                 numeric_columns = ['area', 'price', 'number_of_bedrooms', 'number_of_toilets', 'legal', 'lat', 'lon', 'district', 'property_type_id']
                 for col in numeric_columns:
                     if col in df.columns:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                        df[col] = pd.to_numeric(df[col], errors='coerce') # convert to numeric, if error, set to -1
                         df[col] = df[col].fillna(-1)
                 
                 # Remove rows with invalid price or area
@@ -200,10 +200,10 @@ def train_model(**context) -> Dict[str, Any]:
         
         logger.info("reset index")
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        X_train = pd.DataFrame(X_train).reset_index(drop=True)
-        X_test = pd.DataFrame(X_test).reset_index(drop=True)
-        y_train = pd.Series(y_train).reset_index(drop=True)
-        y_test = pd.Series(y_test).reset_index(drop=True)
+        # X_train = pd.DataFrame(X_train).reset_index(drop=True)
+        # X_test = pd.DataFrame(X_test).reset_index(drop=True)
+        # y_train = pd.Series(y_train).reset_index(drop=True)
+        # y_test = pd.Series(y_test).reset_index(drop=True)
         
         logger.info(f"X_train shape:\n{X_train.shape}")
         logger.info(f"y_train shape:\n{y_train.shape}")

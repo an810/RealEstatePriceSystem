@@ -34,7 +34,7 @@ SMTP_PASSWORD = "plhl bcdx ytle wiec"
 EMAIL_FROM = "anmd.clone@gmail.com"
 
 # Telegram configuration
-TELEGRAM_BOT_TOKEN = "8135521232:AAH6i6cIc0LzGLtp_tgXfMmnDH5HV-MDTUc"
+TELEGRAM_BOT_TOKEN = "7911920899:AAHAsOTy6z-sDvrofESWXpV2G4Zxt9JR-AI"
 CLOUDFLARE_WORKER_URL = "https://hustrealestate.antp9254.workers.dev"
 TELEGRAM_API_URL = f"{CLOUDFLARE_WORKER_URL}/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
@@ -46,9 +46,9 @@ PROPERTY_TYPE_MAPPING = {
     'Đất': 4
 }
 
-def convert_property_type_to_int(value: str) -> int:
-    """Convert property type string to integer code"""
-    return PROPERTY_TYPE_MAPPING.get(value, -1)
+# def convert_property_type_to_int(value: str) -> int:
+#     """Convert property type string to integer code"""
+#     return PROPERTY_TYPE_MAPPING.get(value, -1)
 
 def convert_int_to_property_type(value: int) -> str:
     """Convert property type integer code to text format"""
@@ -57,16 +57,16 @@ def convert_int_to_property_type(value: int) -> str:
             return prop_type
     return "Không xác định"
 
-def convert_phaply_to_int(value: str) -> int:
-    """Convert legal status string to integer code"""
-    if any(substring in str(value) for substring in ['chưa', 'Chưa', 'đang', 'Đang', 'chờ', 'Chờ', 'làm sổ']):
-        return 0
-    elif any(substring in str(value) for substring in ['Hợp đồng', 'hợp đồng', 'HĐMB', 'HDMB']):
-        return 1
-    elif any(substring in str(value) for substring in ['sổ đỏ', 'Sổ đỏ', 'SỔ ĐỎ', 'Có sổ', 'Sổ hồng', 'sổ hồng', 'SỔ HỒNG', 'Đã có', 'đã có', 'sẵn sổ', 'Sẵn sổ', 'sổ đẹp', 'Sổ đẹp', 'đầy đủ', 'Đầy đủ', 'rõ ràng', 'Rõ ràng', 'chính chủ', 'Chính chủ', 'sẵn sàng', 'Sẵn sàng']):
-        return 2
-    else:
-        return -1
+# def convert_phaply_to_int(value: str) -> int:
+#     """Convert legal status string to integer code"""
+#     if any(substring in str(value) for substring in ['chưa', 'Chưa', 'đang', 'Đang', 'chờ', 'Chờ', 'làm sổ']):
+#         return 0
+#     elif any(substring in str(value) for substring in ['Hợp đồng', 'hợp đồng', 'HĐMB', 'HDMB']):
+#         return 1
+#     elif any(substring in str(value) for substring in ['sổ đỏ', 'Sổ đỏ', 'SỔ ĐỎ', 'Có sổ', 'Sổ hồng', 'sổ hồng', 'SỔ HỒNG', 'Đã có', 'đã có', 'sẵn sổ', 'Sẵn sổ', 'sổ đẹp', 'Sổ đẹp', 'đầy đủ', 'Đầy đủ', 'rõ ràng', 'Rõ ràng', 'chính chủ', 'Chính chủ', 'sẵn sàng', 'Sẵn sàng']):
+#         return 2
+#     else:
+#         return -1
 
 def convert_int_to_phaply(value: int) -> str:
     """Convert legal status integer code to text format"""
@@ -139,6 +139,7 @@ def get_subscriptions():
                 'property_type_ids': property_type_ids,
                 'legal_ids': legal_ids
             }
+            logger.info(f"Complete subscription: {complete_sub}")
             complete_subscriptions.append(complete_sub)
         
         return complete_subscriptions
@@ -229,22 +230,30 @@ def find_matching_properties_for_district(district_id: int, search_params: Dict)
             'district_id': prop.district_id,
             'similarity_score': 1 - distance
         })
-    
+    logger.info(f"Found {len(matches)} properties for district {district_id}")
     return matches
 
 def get_district_name(district_id: int) -> str:
-    """Get district name from district ID using the mapping file"""
-    mapping_file_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'cleaned', 'district_mapping.txt')
+    """Get district name from district ID by querying the database (with in-memory cache)."""
+    if not hasattr(get_district_name, "_cache"):
+        get_district_name._cache = {}
+    cache = get_district_name._cache
+    if district_id in cache:
+        return cache[district_id]
     try:
-        with open(mapping_file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                if line.strip():
-                    id_str, name = line.strip().split(': ')
-                    if int(id_str) == district_id:
-                        return name
-        return f"District {district_id}"
+        with engine.connect() as connection:
+            query = """
+                SELECT district FROM district_mapping WHERE district_id = :district_id
+            """
+            result = connection.execute(text(query), {"district_id": district_id})
+            row = result.fetchone()
+            if row and row.district:
+                cache[district_id] = row.district
+                return row.district
+            else:
+                return f"District {district_id}"
     except Exception as e:
-        print(f"Error reading district mapping file: {str(e)}")
+        print(f"Error querying district name from database: {str(e)}")
         return f"District {district_id}"
 
 def batch_send_email_notifications(email_properties: Dict[str, Dict[int, List[Dict]]], email_requirements: Dict[str, Dict]):
@@ -397,7 +406,7 @@ def batch_send_telegram_notifications(telegram_properties: Dict[str, Dict[int, L
             
             for prop in properties:
                 message += f"*{prop['title']}*\n"
-                message += f"Price: {prop['price']:,.0f} VND\n"
+                message += f"Price: {prop['price']:,.0f} billion VND\n"
                 message += f"Area: {prop['area']} m²\n"
                 message += f"Bedrooms: {prop['number_of_bedrooms']}\n"
                 message += f"Toilets: {prop['number_of_toilets']}\n"
@@ -413,6 +422,7 @@ def batch_send_telegram_notifications(telegram_properties: Dict[str, Dict[int, L
             "disable_web_page_preview": True
         }
         
+        logger.info(f"Sending Telegram message to chat_id {chat_id} with {len(district_matches)} districts")
         requests.post(TELEGRAM_API_URL, json=payload)
 
 def process_subscriptions():

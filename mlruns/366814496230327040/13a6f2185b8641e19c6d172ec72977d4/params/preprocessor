@@ -1,0 +1,7 @@
+ColumnTransformer(transformers=[('num', StandardScaler(),
+                                 ['area', 'number_of_bedrooms',
+                                  'number_of_toilets', 'lat', 'lon']),
+                                ('cat',
+                                 OneHotEncoder(handle_unknown='ignore',
+                                               sparse_output=False),
+                                 ['legal', 'district', 'property_type_id'])])

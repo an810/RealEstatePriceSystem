@@ -11,8 +11,8 @@ DB_CONFIG = {
     'dbname': 'real_estate',
     'user': 'postgres',
     'password': 'postgres',
-    'host': 'localhost',
-    'port': '5433'
+    'host': 'real_estate_db',
+    'port': '5432'
 }
 
 def get_db_engine():
@@ -166,6 +166,8 @@ def save_subscription_with_relations(connection, subscription_data: dict, distri
         ) RETURNING id
     """), subscription_data)
     
+    # Retrieve the ID of the newly inserted subscription record from the database result.
+    # The 'RETURNING id' clause in the SQL insert statement ensures the new subscription's ID is returned.
     subscription_id = result.fetchone()[0]
     
     # Insert district subscriptions
@@ -216,6 +218,13 @@ async def subscribe(request: SubscribeRequest):
         # Validate user_type
         if request.user_type not in ['email', 'telegram']:
             raise HTTPException(status_code=400, detail="Invalid user_type. Must be either 'email' or 'telegram'")
+        
+        # Check if user_id is already subscribed
+        engine = get_db_engine()
+        with engine.begin() as connection:
+            result = connection.execute(text("SELECT COUNT(*) FROM subscription WHERE user_id = :user_id"), {"user_id": request.user_id})
+            if result.fetchone()[0] > 0:
+                raise HTTPException(status_code=400, detail="User already subscribed")
         
         # Convert district names to IDs
         district_ids = get_district_ids(request.districts)

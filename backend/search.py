@@ -6,6 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import NearestNeighbors
 import numpy as np
 from contextlib import asynccontextmanager
+import os
 
 app = FastAPI()
 router = APIRouter()
@@ -15,8 +16,8 @@ DB_CONFIG = {
     'dbname': 'real_estate',
     'user': 'postgres',
     'password': 'postgres',
-    'host': 'localhost',
-    'port': '5433'
+    'host': 'real_estate_db',
+    'port': '5432'
 }
 
 def get_db_engine():

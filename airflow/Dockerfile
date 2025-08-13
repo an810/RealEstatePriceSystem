@@ -26,5 +26,7 @@ USER airflow
 
 # Install Python dependencies
 COPY requirements.txt /requirements.txt
-RUN pip install --no-cache-dir -r /requirements.txt \
-    && pip install --no-cache-dir undetected-chromedriver==3.5.5 
+# RUN pip install --no-cache-dir -r /requirements.txt \
+#     && pip install --no-cache-dir undetected-chromedriver==3.5.5 
+RUN pip install -r /requirements.txt \
+    && pip install undetected-chromedriver==3.5.5 

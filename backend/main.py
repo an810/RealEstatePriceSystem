@@ -1,15 +1,15 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from visualization import router as visualization_router
-from mlflow_serve import router as mlflow_serve_router
-from subsribe import router as subscribe_router
-from search import router as search_router
-from district import router as district_router
-from legal_status import router as legal_status_router
-from property_type import router as property_type_router
+from backend.visualization import router as visualization_router
+from backend.mlflow_serve import router as mlflow_serve_router
+from backend.subsribe import router as subscribe_router
+from backend.search import router as search_router
+from backend.district import router as district_router
+from backend.legal_status import router as legal_status_router
+from backend.property_type import router as property_type_router
 
-from search import load_property_data, property_cache
+from backend.search import load_property_data, property_cache
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

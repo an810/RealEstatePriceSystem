@@ -92,7 +92,7 @@ const Search = () => {
   };
 
   const getPropertyTypeText = (typeId) => {
-    return propertyTypes[typeId - 1] || `Type ${typeId}`;
+    return propertyTypes[typeId] || `Type ${typeId}`;
   };
 
   const getLegalStatusText = (statusId) => {

@@ -13,8 +13,8 @@ DB_CONFIG = {
     'dbname': 'real_estate',
     'user': 'postgres',
     'password': 'postgres',
-    'host': 'localhost',
-    'port': '5433'
+    'host': 'real_estate_db',
+    'port': '5432'
 }
 
 def get_db_engine():

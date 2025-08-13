@@ -10,9 +10,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 CLOUDFLARE_WORKER_URL = "https://hustrealestate.antp9254.workers.dev"
-TELEGRAM_BOT_TOKEN = "8135521232:AAH6i6cIc0LzGLtp_tgXfMmnDH5HV-MDTUc"
+TELEGRAM_BOT_TOKEN = "7911920899:AAHAsOTy6z-sDvrofESWXpV2G4Zxt9JR-AI"
 TELEGRAM_API = f"{CLOUDFLARE_WORKER_URL}/bot{TELEGRAM_BOT_TOKEN}"
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
 PROPERTY_TYPE_MAPPING = {

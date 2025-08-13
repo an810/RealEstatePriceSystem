@@ -12,8 +12,8 @@ DB_CONFIG = {
     'dbname': 'real_estate',
     'user': 'postgres',
     'password': 'postgres',
-    'host': 'localhost',
-    'port': '5433'
+    'host': 'real_estate_db',
+    'port': '5432'
 }
 
 def get_db_engine():
@@ -141,7 +141,7 @@ def load_and_process_data() -> Dict[str, Any]:
                 detail=f"Missing required columns: {', '.join(missing_columns)}"
             )
         
-        df_clean = df.dropna(subset=required_columns)
+        df_clean = df.dropna(subset=required_columns).copy()
         
         if df_clean.empty:
             raise HTTPException(
@@ -150,7 +150,7 @@ def load_and_process_data() -> Dict[str, Any]:
             )
         
         # Combine Bắc Từ Liêm and Nam Từ Liêm into Từ Liêm
-        df_clean["district"] = df_clean["district"].replace({
+        df_clean.loc[:, "district"] = df_clean["district"].replace({
             "Bắc Từ Liêm": "Từ Liêm",
             "Nam Từ Liêm": "Từ Liêm"
         })
@@ -271,7 +271,7 @@ def load_and_process_data() -> Dict[str, Any]:
 
         # 9. Price per Area by District and Property Type
         # Convert price from billion to million VND
-        df_clean["price_per_area"] = (df_clean["price"] * 1000) / df_clean["area"]
+        df_clean.loc[:, "price_per_area"] = (df_clean["price"] * 1000) / df_clean["area"]
         
         # 10. Price per Area Distribution
         price_per_area_dist = {
@@ -317,7 +317,7 @@ def load_and_process_data() -> Dict[str, Any]:
 
         # Load GeoJSON
         try:
-            with open("/Users/ducan/Documents/Graduation-Thesis/RealEstatePriceSystem/data/diaphanhuyen.geojson", "r", encoding="utf-8") as f:
+            with open("/opt/airflow/data/diaphanhuyen.geojson", "r", encoding="utf-8") as f:
                 geojson_data = json.load(f)
         except FileNotFoundError:
             raise HTTPException(

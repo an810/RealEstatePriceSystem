@@ -8,7 +8,7 @@ import os
 # Add the scripts directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
-from train_price_model import train_price_model
+from model_training_module import train_model
 
 default_args = {
     'owner': 'airflow',
@@ -32,7 +32,7 @@ dag = DAG(
 
 test_train_model_task = PythonOperator(
     task_id='test_train_price_model',
-    python_callable=train_price_model,
+    python_callable=train_model,
     dag=dag,
 )
 

@@ -24,8 +24,10 @@ DB_CONFIG = {
     'dbname': 'real_estate',
     'user': 'postgres',
     'password': 'postgres',
-    'host': 'localhost',
-    'port': '5433'
+    # 'host': 'localhost',
+    # 'port': '5433',
+    'host': 'real_estate_db',
+    'port': '5432'
 }
 
 def get_db_engine():
@@ -117,30 +119,30 @@ def load_district_mapping():
         raise
 
 # Load URL mappings
-BATDONGSAN_URLS = {}
-NHATOT_URLS = {}
+# BATDONGSAN_URLS = {}
+# NHATOT_URLS = {}
 
-def load_url_mappings():
-    """Load URL mappings from files."""
-    global BATDONGSAN_URLS, NHATOT_URLS
+# def load_url_mappings():
+#     """Load URL mappings from files."""
+#     global BATDONGSAN_URLS, NHATOT_URLS
     
-    try:
-        # Load batdongsan URLs
-        if os.path.exists('data/crawled/batdongsan_url.tsv'):
-            with open('data/crawled/batdongsan_url.tsv', 'r', encoding='utf-8') as f:
-                for line in f:
-                    url_id, url = line.strip().split('\t')
-                    BATDONGSAN_URLS[url_id.strip()] = url.strip()
+#     try:
+#         # Load batdongsan URLs
+#         if os.path.exists('data/crawled/batdongsan_url.tsv'):
+#             with open('data/crawled/batdongsan_url.tsv', 'r', encoding='utf-8') as f:
+#                 for line in f:
+#                     url_id, url = line.strip().split('\t')
+#                     BATDONGSAN_URLS[url_id.strip()] = url.strip()
         
-        # Load nhatot URLs
-        if os.path.exists('data/crawled/nhatot_url.tsv'):
-            with open('data/crawled/nhatot_url.tsv', 'r', encoding='utf-8') as f:
-                for line in f:
-                    url_id, url = line.strip().split('\t')
-                    NHATOT_URLS[url_id.strip()] = url.strip()
+#         # Load nhatot URLs
+#         if os.path.exists('data/crawled/nhatot_url.tsv'):
+#             with open('data/crawled/nhatot_url.tsv', 'r', encoding='utf-8') as f:
+#                 for line in f:
+#                     url_id, url = line.strip().split('\t')
+#                     NHATOT_URLS[url_id.strip()] = url.strip()
                         
-    except Exception as e:
-        logger.error(f"Error loading URL mappings: {str(e)}")
+#     except Exception as e:
+#         logger.error(f"Error loading URL mappings: {str(e)}")
         raise
 
 # def get_property_url(url_id):
@@ -166,26 +168,26 @@ def validate_input_data(data, required_features):
         raise ValueError(f"Missing required features: {missing_features}")
     return True
 
-def validate_districts(district_names):
-    """Validate district names and convert to IDs."""
-    if not isinstance(district_names, list):
-        raise ValueError("Districts must be a list of district names")
-    if not district_names:
-        raise ValueError("At least one district must be specified")
+# def validate_districts(district_names):
+#     """Validate district names and convert to IDs."""
+#     if not isinstance(district_names, list):
+#         raise ValueError("Districts must be a list of district names")
+#     if not district_names:
+#         raise ValueError("At least one district must be specified")
     
-    district_ids = []
-    invalid_districts = []
+#     district_ids = []
+#     invalid_districts = []
     
-    for district in district_names:
-        if district not in DISTRICT_MAPPING:
-            invalid_districts.append(district)
-        else:
-            district_ids.append(DISTRICT_MAPPING[district])
+#     for district in district_names:
+#         if district not in DISTRICT_MAPPING:
+#             invalid_districts.append(district)
+#         else:
+#             district_ids.append(DISTRICT_MAPPING[district])
     
-    if invalid_districts:
-        raise ValueError(f"Invalid district names: {invalid_districts}")
+#     if invalid_districts:
+#         raise ValueError(f"Invalid district names: {invalid_districts}")
     
-    return district_ids
+#     return district_ids
 
 def get_district_id(district_name):
     """Get district ID from district name."""
@@ -218,13 +220,12 @@ def load_models():
         raise
 
 # Set MLflow tracking URI
-mlflow.set_tracking_uri("http://localhost:5001")
+mlflow.set_tracking_uri("http://mlflow:5000")
 
 # Load the models and URL mappings
 try:
     load_models()
     load_district_mapping()  # Load district mapping from database
-    load_url_mappings()
 except Exception as e:
     logger.error(f"Error loading models, district mapping, or URL mappings: {str(e)}")
     raise
